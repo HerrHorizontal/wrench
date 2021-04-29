@@ -21,7 +21,7 @@
 #include "../include/TestWithFork.h"
 #include "../include/UniqueTmpPathPrefix.h"
 
-XBT_LOG_NEW_DEFAULT_CATEGORY(energy_consumption_test, "Log category for EnergyConsumptionTest");
+WRENCH_LOG_CATEGORY(energy_consumption_test, "Log category for EnergyConsumptionTest");
 
 
 class EnergyConsumptionTest : public ::testing::Test {
@@ -53,74 +53,74 @@ protected:
 
         // Create a four-host 1-core platform file along with different pstates
         std::string xml = "<?xml version='1.0'?>"
-                "<!DOCTYPE platform SYSTEM \"http://simgrid.gforge.inria.fr/simgrid/simgrid.dtd\">"
-                "<platform version=\"4.1\">"
-                "<zone id=\"AS0\" routing=\"Full\">"
-                "<host id=\"MyHost1\" speed=\"100.0Mf,50.0Mf,20.0Mf\" pstate=\"0\" core=\"1\" >"
-                "          <disk id=\"large_disk1\" read_bw=\"100MBps\" write_bw=\"100MBps\">"
-                "             <prop id=\"size\" value=\"10000000000000B\"/>"
-                "             <prop id=\"mount\" value=\"/disk1\"/>"
-                "          </disk>"
-                "          <disk id=\"large_disk2\" read_bw=\"100MBps\" write_bw=\"100MBps\">"
-                "             <prop id=\"size\" value=\"10000000000000B\"/>"
-                "             <prop id=\"mount\" value=\"/disk2\"/>"
-                "          </disk>"
-                "          <disk id=\"large_disk3\" read_bw=\"100MBps\" write_bw=\"100MBps\">"
-                "             <prop id=\"size\" value=\"100B\"/>"
-                "             <prop id=\"mount\" value=\"/scratch\"/>"
-                "          </disk>"
-                "           <prop id=\"wattage_per_state\" value=\"100.000000:200.000000:200.000000,93.000000:170.000000:170.000000,90.000000:150.000000:150.000000\" />"
-                "          <prop id=\"wattage_off\" value=\"10B\" />"
-                "</host>"
+                          "<!DOCTYPE platform SYSTEM \"http://simgrid.gforge.inria.fr/simgrid/simgrid.dtd\">"
+                          "<platform version=\"4.1\">"
+                          "<zone id=\"AS0\" routing=\"Full\">"
+                          "<host id=\"MyHost1\" speed=\"100.0Mf,50.0Mf,20.0Mf\" pstate=\"0\" core=\"1\" >"
+                          "          <disk id=\"large_disk1\" read_bw=\"100MBps\" write_bw=\"100MBps\">"
+                          "             <prop id=\"size\" value=\"10000000000000B\"/>"
+                          "             <prop id=\"mount\" value=\"/disk1\"/>"
+                          "          </disk>"
+                          "          <disk id=\"large_disk2\" read_bw=\"100MBps\" write_bw=\"100MBps\">"
+                          "             <prop id=\"size\" value=\"10000000000000B\"/>"
+                          "             <prop id=\"mount\" value=\"/disk2\"/>"
+                          "          </disk>"
+                          "          <disk id=\"large_disk3\" read_bw=\"100MBps\" write_bw=\"100MBps\">"
+                          "             <prop id=\"size\" value=\"100B\"/>"
+                          "             <prop id=\"mount\" value=\"/scratch\"/>"
+                          "          </disk>"
+                          "           <prop id=\"wattage_per_state\" value=\"100.000000:200.000000:200.000000,93.000000:170.000000:170.000000,90.000000:150.000000:150.000000\" />"
+                          "          <prop id=\"wattage_off\" value=\"10B\" />"
+                          "</host>"
 
-                "<host id=\"MyHost2\" speed=\"100.0Mf,50.0Mf,20.0Mf\" pstate=\"0\" core=\"1\" >"
-                "          <disk id=\"large_disk1\" read_bw=\"100MBps\" write_bw=\"100MBps\">"
-                "             <prop id=\"size\" value=\"10000000000000B\"/>"
-                "             <prop id=\"mount\" value=\"/disk1\"/>"
-                "          </disk>"
-                "          <disk id=\"large_disk2\" read_bw=\"100MBps\" write_bw=\"100MBps\">"
-                "             <prop id=\"size\" value=\"10000000000000B\"/>"
-                "             <prop id=\"mount\" value=\"/disk2\"/>"
-                "          </disk>"
-                "          <disk id=\"large_disk3\" read_bw=\"100MBps\" write_bw=\"100MBps\">"
-                "             <prop id=\"size\" value=\"100B\"/>"
-                "             <prop id=\"mount\" value=\"/scratch\"/>"
-                "          </disk>"
-                "           <prop id=\"wattage_per_state\" value=\"100.000000:200.000000:200.000000,93.000000:170.000000:170.000000,90.000000:150.000000:150.000000\" />"
-                "          <prop id=\"wattage_off\" value=\"10B\" />"
-                "</host>"
+                          "<host id=\"MyHost2\" speed=\"100.0Mf,50.0Mf,20.0Mf\" pstate=\"0\" core=\"1\" >"
+                          "          <disk id=\"large_disk1\" read_bw=\"100MBps\" write_bw=\"100MBps\">"
+                          "             <prop id=\"size\" value=\"10000000000000B\"/>"
+                          "             <prop id=\"mount\" value=\"/disk1\"/>"
+                          "          </disk>"
+                          "          <disk id=\"large_disk2\" read_bw=\"100MBps\" write_bw=\"100MBps\">"
+                          "             <prop id=\"size\" value=\"10000000000000B\"/>"
+                          "             <prop id=\"mount\" value=\"/disk2\"/>"
+                          "          </disk>"
+                          "          <disk id=\"large_disk3\" read_bw=\"100MBps\" write_bw=\"100MBps\">"
+                          "             <prop id=\"size\" value=\"100B\"/>"
+                          "             <prop id=\"mount\" value=\"/scratch\"/>"
+                          "          </disk>"
+                          "           <prop id=\"wattage_per_state\" value=\"100.000000:200.000000:200.000000,93.000000:170.000000:170.000000,90.000000:150.000000:150.000000\" />"
+                          "          <prop id=\"wattage_off\" value=\"10B\" />"
+                          "</host>"
 
-                "<host id=\"MyHost3\" speed=\"100.0Mf,50.0Mf,20.0Mf\" pstate=\"0\" core=\"1\" >"
-                "          <disk id=\"large_disk1\" read_bw=\"100MBps\" write_bw=\"100MBps\">"
-                "             <prop id=\"size\" value=\"10000000000000B\"/>"
-                "             <prop id=\"mount\" value=\"/disk1\"/>"
-                "          </disk>"
-                "          <disk id=\"large_disk2\" read_bw=\"100MBps\" write_bw=\"100MBps\">"
-                "             <prop id=\"size\" value=\"10000000000000B\"/>"
-                "             <prop id=\"mount\" value=\"/disk2\"/>"
-                "          </disk>"
-                "          <disk id=\"large_disk\" read_bw=\"100MBps\" write_bw=\"100MBps\">"
-                "             <prop id=\"size\" value=\"100B\"/>"
-                "             <prop id=\"mount\" value=\"/scratch\"/>"
-                "          </disk>"
-                "          <prop id=\"wattage_per_state\" value=\"100.0:200.0, 93.0:170.0, 90.0:150.0\" />"
-                "          <prop id=\"wattage_off\" value=\"10B\" />"
-                "</host>"
+                          "<host id=\"MyHost3\" speed=\"100.0Mf,50.0Mf,20.0Mf\" pstate=\"0\" core=\"1\" >"
+                          "          <disk id=\"large_disk1\" read_bw=\"100MBps\" write_bw=\"100MBps\">"
+                          "             <prop id=\"size\" value=\"10000000000000B\"/>"
+                          "             <prop id=\"mount\" value=\"/disk1\"/>"
+                          "          </disk>"
+                          "          <disk id=\"large_disk2\" read_bw=\"100MBps\" write_bw=\"100MBps\">"
+                          "             <prop id=\"size\" value=\"10000000000000B\"/>"
+                          "             <prop id=\"mount\" value=\"/disk2\"/>"
+                          "          </disk>"
+                          "          <disk id=\"large_disk\" read_bw=\"100MBps\" write_bw=\"100MBps\">"
+                          "             <prop id=\"size\" value=\"100B\"/>"
+                          "             <prop id=\"mount\" value=\"/scratch\"/>"
+                          "          </disk>"
+                          "          <prop id=\"wattage_per_state\" value=\"100.0:200.0, 93.0:170.0, 90.0:150.0\" />"
+                          "          <prop id=\"wattage_off\" value=\"10B\" />"
+                          "</host>"
 
-                "<link id=\"bus\" bandwidth=\"100kBps\" latency=\"0\" sharing_policy=\"SHARED\">"
-                "<prop id=\"wattage_range\" value=\"1:3\" />"
-                "</link>"
-                "<route src=\"MyHost1\" dst=\"MyHost2\">"
-                "<link_ctn id=\"bus\"/>"
-                "</route>"
-                "<route src=\"MyHost1\" dst=\"MyHost3\">"
-                "<link_ctn id=\"bus\"/>"
-                "</route>"
-                "<route src=\"MyHost2\" dst=\"MyHost3\">"
-                "<link_ctn id=\"bus\"/>"
-                "</route>"
-                "</zone>"
-                "</platform>";
+                          "<link id=\"bus\" bandwidth=\"100kBps\" latency=\"0\" sharing_policy=\"SHARED\">"
+                          "<prop id=\"wattage_range\" value=\"1:3\" />"
+                          "</link>"
+                          "<route src=\"MyHost1\" dst=\"MyHost2\">"
+                          "<link_ctn id=\"bus\"/>"
+                          "</route>"
+                          "<route src=\"MyHost1\" dst=\"MyHost3\">"
+                          "<link_ctn id=\"bus\"/>"
+                          "</route>"
+                          "<route src=\"MyHost2\" dst=\"MyHost3\">"
+                          "<link_ctn id=\"bus\"/>"
+                          "</route>"
+                          "</zone>"
+                          "</platform>";
         FILE *platform_file = fopen(platform_file_path.c_str(), "w");
         fprintf(platform_file, "%s", xml.c_str());
         fclose(platform_file);
@@ -160,10 +160,10 @@ private:
             std::vector<std::string> simulation_hosts = wrench::Simulation::getHostnameList();
 
             //Now based on this default speed, (100MF), execute a job requiring 10^10 flops and check the time
-            wrench::WorkflowTask *task = this->getWorkflow()->addTask("task1", 10000000000, 1, 1, 1.0, 1.0);
+            wrench::WorkflowTask *task = this->getWorkflow()->addTask("task1", 10000000000, 1, 1, 1.0);
 
             // Create a StandardJob
-            wrench::StandardJob *job = job_manager->createStandardJob(
+            auto job = job_manager->createStandardJob(
                     task,
                     {
                     });
@@ -285,7 +285,7 @@ void EnergyConsumptionTest::do_AccessEnergyApiExceptionTests_test() {
     int argc = 2;
     auto argv = (char **) calloc(argc, sizeof(char *));
     argv[0] = strdup("unit_test");
-    argv[1] = strdup("--activate-energy");
+    argv[1] = strdup("--wrench-energy-simulation");
 
     EXPECT_NO_THROW(simulation->init(&argc, argv));
 
@@ -334,8 +334,8 @@ void EnergyConsumptionTest::do_AccessEnergyApiExceptionTests_test() {
 
     delete simulation;
 
-    free(argv[0]);
-    free(argv[1]);
+    for (int i=0; i < argc; i++)
+        free(argv[i]);
     free(argv);
 }
 
@@ -348,8 +348,8 @@ class EnergyApiAccessExceptionsPluginNotActiveTestWMS : public wrench::WMS {
 
 public:
     EnergyApiAccessExceptionsPluginNotActiveTestWMS(EnergyConsumptionTest *test,
-                                     const std::set<std::shared_ptr<wrench::ComputeService>> &compute_services,
-                                     std::string& hostname) :
+                                                    const std::set<std::shared_ptr<wrench::ComputeService>> &compute_services,
+                                                    std::string& hostname) :
             wrench::WMS(nullptr, nullptr,  compute_services, {}, {}, nullptr, hostname,
                         "test") {
         this->test = test;
@@ -368,10 +368,10 @@ private:
             std::vector<std::string> simulation_hosts = wrench::Simulation::getHostnameList();
 
             //Now based on this default speed, (100MF), execute a job requiring 10^10 flops and check the time
-            wrench::WorkflowTask *task = this->getWorkflow()->addTask("task1", 10000000000, 1, 1, 1.0, 1.0);
+            wrench::WorkflowTask *task = this->getWorkflow()->addTask("task1", 10000000000, 1, 1, 1.0);
 
             // Create a StandardJob
-            wrench::StandardJob *job = job_manager->createStandardJob(
+            auto job = job_manager->createStandardJob(
                     task,
                     {
                     });
@@ -484,7 +484,7 @@ void EnergyConsumptionTest::do_AccessEnergyApiExceptionPluginNotActiveTests_test
     int argc = 1;
     auto argv = (char **) calloc(argc, sizeof(char *));
     argv[0] = strdup("unit_test");
-//    argv[1] = strdup("--activate-energy");
+//    argv[1] = strdup("--wrench-energy-simulation");
 
     EXPECT_NO_THROW(simulation->init(&argc, argv));
 
@@ -533,8 +533,8 @@ void EnergyConsumptionTest::do_AccessEnergyApiExceptionPluginNotActiveTests_test
 
     delete simulation;
 
-    free(argv[0]);
-    free(argv[1]);
+    for (int i=0; i < argc; i++)
+        free(argv[i]);
     free(argv);
 }
 
@@ -564,10 +564,10 @@ private:
         {
 
             //Now based on this default speed, (100MF), execute a job requiring 10^10 flops and check the time
-            wrench::WorkflowTask *task = this->getWorkflow()->addTask("task1", 10000000000, 1, 1, 1.0, 1.0);
+            wrench::WorkflowTask *task = this->getWorkflow()->addTask("task1", 10000000000, 1, 1, 1.0);
 
             // Create a StandardJob
-            wrench::StandardJob *job = job_manager->createStandardJob(
+            auto job = job_manager->createStandardJob(
                     task,
                     {
                     });
@@ -639,7 +639,7 @@ void EnergyConsumptionTest::do_EnergyConsumption_test() {
     int argc = 2;
     auto argv = (char **) calloc(argc, sizeof(char *));
     argv[0] = strdup("unit_test");
-    argv[1] = strdup("--activate-energy");
+    argv[1] = strdup("--wrench-energy-simulation");
 
     EXPECT_NO_THROW(simulation->init(&argc, argv));
 
@@ -688,8 +688,8 @@ void EnergyConsumptionTest::do_EnergyConsumption_test() {
 
     delete simulation;
 
-    free(argv[0]);
-    free(argv[1]);
+    for (int i=0; i < argc; i++)
+        free(argv[i]);
     free(argv);
 }
 
@@ -792,7 +792,7 @@ void EnergyConsumptionTest::do_SimpleApiChecksEnergy_test() {
     int argc = 2;
     auto argv = (char **) calloc(argc, sizeof(char *));
     argv[0] = strdup("unit_test");
-    argv[1] = strdup("--activate-energy");
+    argv[1] = strdup("--wrench-energy-simulation");
 
     EXPECT_NO_THROW(simulation->init(&argc, argv));
 
@@ -841,8 +841,8 @@ void EnergyConsumptionTest::do_SimpleApiChecksEnergy_test() {
 
     delete simulation;
 
-    free(argv[0]);
-    free(argv[1]);
+    for (int i=0; i < argc; i++)
+        free(argv[i]);
     free(argv);
 }
 
@@ -876,19 +876,19 @@ private:
             std::vector<std::string> simulation_hosts = wrench::Simulation::getHostnameList();
 
             //Now based on this default speed, (100MF), execute a job requiring 10^10 flops and check the time
-            wrench::WorkflowTask *task1 = this->getWorkflow()->addTask("task1", 10000000000, 1, 1, 1.0, 1.0);
+            wrench::WorkflowTask *task1 = this->getWorkflow()->addTask("task1", 10000000000, 1, 1, 1.0);
 
             // Create a StandardJob
-            wrench::StandardJob *job1 = job_manager->createStandardJob(
+            auto job1 = job_manager->createStandardJob(
                     task1,
                     {
                     });
 
             //Now based on this default speed, (100MF), execute a job requiring 10^10 flops and check the time
-            wrench::WorkflowTask *task2 = this->getWorkflow()->addTask("task2", 10000000000, 1, 1, 1.0, 1.0);
+            wrench::WorkflowTask *task2 = this->getWorkflow()->addTask("task2", 10000000000, 1, 1, 1.0);
 
             // Create a StandardJob
-            wrench::StandardJob *job2 = job_manager->createStandardJob(
+            auto job2 = job_manager->createStandardJob(
                     task2,
                     {
                     });
@@ -1026,7 +1026,7 @@ void EnergyConsumptionTest::do_EnergyConsumptionPStateChange_test() {
     int argc = 2;
     auto argv = (char **) calloc(argc, sizeof(char *));
     argv[0] = strdup("unit_test");
-    argv[1] = strdup("--activate-energy");
+    argv[1] = strdup("--wrench-energy-simulation");
 
     EXPECT_NO_THROW(simulation->init(&argc, argv));
 
@@ -1075,8 +1075,8 @@ void EnergyConsumptionTest::do_EnergyConsumptionPStateChange_test() {
 
     delete simulation;
 
-    free(argv[0]);
-    free(argv[1]);
+    for (int i=0; i < argc; i++)
+        free(argv[i]);
     free(argv);
 }
 
@@ -1167,7 +1167,8 @@ void EnergyConsumptionTest::do_PluginNotActive_test() {
 
     delete simulation;
 
-    free(argv[0]);
+    for (int i=0; i < argc; i++)
+        free(argv[i]);
     free(argv);
 }
 

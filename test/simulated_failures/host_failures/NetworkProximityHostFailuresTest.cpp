@@ -16,7 +16,7 @@
 #include "../../include/UniqueTmpPathPrefix.h"
 #include "../failure_test_util/ResourceSwitcher.h"
 
-XBT_LOG_NEW_DEFAULT_CATEGORY(network_proximity_failures, "Log category for NetworkProximityHostFailuresTest");
+WRENCH_LOG_CATEGORY(network_proximity_failures, "Log category for NetworkProximityHostFailuresTest");
 
 
 class NetworkProximityHostFailuresTest : public ::testing::Test {
@@ -182,9 +182,10 @@ void NetworkProximityHostFailuresTest::do_HostFailures_Test() {
 
     // Create and initialize a simulation
     auto simulation = new wrench::Simulation();
-    int argc = 1;
-    char **argv = (char **) calloc(1, sizeof(char *));
-    argv[0] = strdup("one_task_test");
+    int argc = 2;
+    char **argv = (char **) calloc(argc, sizeof(char *));
+    argv[0] = strdup("unit_test");
+    argv[1] = strdup("--wrench-host-shutdown-simulation");
 
     simulation->init(&argc, argv);
 
@@ -219,7 +220,8 @@ void NetworkProximityHostFailuresTest::do_HostFailures_Test() {
 
     delete simulation;
 
-    free(argv[0]);
+    for (int i=0; i < argc; i++)
+     free(argv[i]);
     free(argv);
 }
 

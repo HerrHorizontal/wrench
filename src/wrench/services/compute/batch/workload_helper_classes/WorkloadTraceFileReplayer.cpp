@@ -14,7 +14,7 @@
 #include "WorkloadTraceFileReplayer.h"
 #include "WorkloadTraceFileReplayerEventReceiver.h"
 
-WRENCH_LOG_NEW_DEFAULT_CATEGORY(workload_trace_file_replayer, "Log category for Trace File Replayer");
+WRENCH_LOG_CATEGORY(wrench_core_workload_trace_file_replayer, "Log category for Trace File Replayer");
 
 namespace wrench {
 
@@ -30,7 +30,7 @@ namespace wrench {
                                                          std::shared_ptr<BatchComputeService> batch_service,
                                                          unsigned long num_cores_per_node,
                                                          bool use_actual_runtimes_as_requested_runtimes,
-                                                         std::vector<std::tuple<std::string, double, double, double, double, unsigned int>> &workload_trace
+                                                         std::vector<std::tuple<std::string, double, double, double, double, unsigned int, std::string>> &workload_trace
     ) :
             WMS(nullptr, nullptr,
                 {batch_service}, {},
@@ -49,15 +49,15 @@ namespace wrench {
         std::shared_ptr<JobManager> job_manager = this->createJobManager();
 
         // Create and handle a bogus workflow
-        auto workflow = new Workflow();
-        this->addWorkflow(workflow);
+        this->workflow = std::shared_ptr<Workflow>(new Workflow());
+        this->addWorkflow(this->workflow.get());
 
         // Create the dual WMS that will just receive workflow execution events so that I don't have to
         std::shared_ptr<WorkloadTraceFileReplayerEventReceiver> event_receiver = std::shared_ptr<WorkloadTraceFileReplayerEventReceiver>(
                 new WorkloadTraceFileReplayerEventReceiver(this->hostname, job_manager));
 
         // Start the WorkloadTraceFileReplayerEventReceiver
-        event_receiver->addWorkflow(workflow, S4U_Simulation::getClock());
+        event_receiver->addWorkflow(workflow.get(), S4U_Simulation::getClock());
         event_receiver->simulation = this->simulation;
         event_receiver->start(event_receiver, true, false); // Daemonized, no auto-restart
 
@@ -79,7 +79,7 @@ namespace wrench {
                 wrench::S4U_Simulation::sleep(sleeptime);
 
             // Get job information
-            std::string job_id = std::get<0>(job);
+            std::string username = std::get<0>(job);
             double time = std::get<2>(job);
             double requested_time = std::get<3>(job);
             if (this->use_actual_runtimes_as_requested_runtimes) {
@@ -93,17 +93,16 @@ namespace wrench {
             for (int i = 0; i < num_nodes; i++) {
                 double time_fudge = 1; // 1 second seems to make it all work!
                 double task_flops = num_cores_per_node * (core_flop_rate * std::max<double>(0, time - time_fudge));
-                double parallel_efficiency = 1.0;
                 WorkflowTask *task = workflow->addTask(
                         this->getName() + "_job_" + std::to_string(job_count) + "_task_" + std::to_string(i),
                         task_flops,
-                        num_cores_per_node, num_cores_per_node, parallel_efficiency,
+                        num_cores_per_node, num_cores_per_node,
                         requested_ram);
                 to_submit.push_back(task);
             }
 
             // Create a Standard Job with only the tasks
-            StandardJob *standard_job;
+            std::shared_ptr<StandardJob> standard_job;
             try {
                 standard_job = job_manager->createStandardJob(to_submit, {});
             } catch (std::invalid_argument &e) {
@@ -117,14 +116,16 @@ namespace wrench {
             batch_job_args["-N"] = std::to_string(num_nodes); // Number of nodes/taks
             batch_job_args["-t"] = std::to_string(1 + requested_time / 60); // Time in minutes (note the +1)
             batch_job_args["-c"] = std::to_string(num_cores_per_node); //number of cores per task
+            batch_job_args["-u"] = username; // username
             batch_job_args["-color"] = "green";
 
             // Submit this job to the batch service
-            WRENCH_INFO("#%lu: Submitting a [-N:%s, -t:%s, -c:%s] job",
+            WRENCH_INFO("#%lu: Submitting a [-N:%s, -t:%s, -c:%s, -u:%s] job",
                         counter++,
                         batch_job_args["-N"].c_str(),
                         batch_job_args["-t"].c_str(),
-                        batch_job_args["-c"].c_str());
+                        batch_job_args["-c"].c_str(),
+                        batch_job_args["-u"].c_str());
             try {
                 job_manager->submitJob(standard_job, this->batch_service, batch_job_args);
             } catch (WorkflowExecutionException &e) {
@@ -136,6 +137,8 @@ namespace wrench {
         // Memory leak: workflow
         // Not clear how to fix this since we can't delete it until all tasks are completed...
         // And yet when we get here there are still running tasks...
+        // AND: some users may want to inspect these tasks anyway! So perhaps we really don't want to
+        // clear RAM
         return 0;
     }
 

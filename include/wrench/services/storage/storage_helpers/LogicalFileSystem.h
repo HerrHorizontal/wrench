@@ -10,11 +10,13 @@
 #ifndef WRENCH_LOGICALFILESYSTEM_H
 #define WRENCH_LOGICALFILESYSTEM_H
 
+#include <stdexcept>
 #include <string>
 #include <map>
 #include <set>
 
-#include <wrench/workflow/WorkflowFile.h>
+
+#include "wrench/workflow/WorkflowFile.h"
 
 namespace wrench {
 
@@ -23,6 +25,8 @@ namespace wrench {
     /***********************/
 
 
+    class StorageService;
+
     /**
      * @brief  A class that implements a weak file system abstraction
      */
@@ -30,7 +34,7 @@ namespace wrench {
 
     public:
 
-        explicit LogicalFileSystem(std::string hostname, std::string ss_name, std::string mount_point);
+        explicit LogicalFileSystem(std::string hostname, StorageService *storage_service, std::string mount_point);
 
         void init();
 
@@ -57,12 +61,12 @@ namespace wrench {
 
         void stageFile(WorkflowFile *file, std::string absolute_path);
 
-        static std::map<std::string, std::string> mount_points;
+        static std::map<std::string, StorageService*> mount_points;
 
         std::map<std::string, std::set<WorkflowFile*>> content;
 
         std::string hostname;
-        std::string ss_name;
+        StorageService *storage_service;
         std::string mount_point;
         double total_capacity;
         double occupied_space;

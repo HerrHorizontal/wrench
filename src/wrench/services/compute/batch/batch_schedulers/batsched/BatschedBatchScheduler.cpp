@@ -7,6 +7,7 @@
  * (at your option) any later version.
  */
 
+
 #ifdef ENABLE_BATSCHED
 
 #include <signal.h>
@@ -22,13 +23,16 @@
 
 #endif
 
-
+#include "wrench/logging/TerminalOutput.h"
 #include "BatschedBatchScheduler.h"
 #include "wrench/services/compute/batch/BatchComputeService.h"
 #include "wrench/simgrid_S4U_util/S4U_Mailbox.h"
 #include "wrench/simgrid_S4U_util/S4U_Simulation.h"
 #include "wrench/exceptions/WorkflowExecutionException.h"
 #include "wrench/services/compute/batch/BatchComputeServiceMessage.h"
+#include "wrench/workflow/failure_causes/NetworkError.h"
+
+WRENCH_LOG_CATEGORY(wrench_core_batsched_batch_scheduler, "Log category for BatschedBatchScheduler");
 
 
 namespace wrench {
@@ -232,14 +236,14 @@ namespace wrench {
         std::map<std::string, double> job_estimated_start_times = {};
         for (auto job : set_of_jobs) {
             // Get the answer
-            std::shared_ptr<SimulationMessage> message = nullptr;
+            std::unique_ptr<SimulationMessage> message = nullptr;
             try {
                 message = S4U_Mailbox::getMessage(batchsched_query_mailbox);
             } catch (std::shared_ptr<NetworkError> &cause) {
                 throw WorkflowExecutionException(cause);
             }
 
-            if (auto msg = std::dynamic_pointer_cast<BatchQueryAnswerMessage>(message)) {
+            if (auto msg = dynamic_cast<BatchQueryAnswerMessage*>(message.get())) {
                 job_estimated_start_times[std::get<0>(job)] = msg->estimated_start_time;
             } else {
                 throw std::runtime_error(
@@ -307,7 +311,7 @@ namespace wrench {
             return;
         }
 
-        // IMPORTANT: We always as for more time, so that when the alarm goes
+        // IMPORTANT: We always ask for more time, so that when the alarm goes
         // of at the right time, we can respond to it before the Batsched
         // time slice has expired!
         double BATSCHED_JOB_EXTRA_TIME = 1.0;
@@ -329,7 +333,7 @@ namespace wrench {
             unsigned long num_nodes_asked_for = batch_job->getRequestedNumNodes();
             unsigned long allocated_time = batch_job->getRequestedTime();
 
-            batch_submission_data["events"][i]["timestamp"] = batch_job->getArrivalTimeStamp();
+            batch_submission_data["events"][i]["timestamp"] = batch_job->getArrivalTimestamp();
             batch_submission_data["events"][i]["type"] = "JOB_SUBMITTED";
             batch_submission_data["events"][i]["data"]["job_id"] = std::to_string(batch_job->getJobID());
             batch_submission_data["events"][i]["data"]["job"]["id"] = std::to_string(batch_job->getJobID());
@@ -359,8 +363,10 @@ namespace wrench {
     void BatschedBatchScheduler::processJobFailure(std::shared_ptr<BatchJob> batch_job) {
 
 #ifdef ENABLE_BATSCHED
-
+        WRENCH_INFO("CALLING NOTIFYJOBEVENTSTOBATSCHED");
         this->notifyJobEventsToBatSched(std::to_string(batch_job->getJobID()), "TIMEOUT", "COMPLETED_FAILED", "", "JOB_COMPLETED");
+        WRENCH_INFO("CALLED NOTIFYJOBEVENTSTOBATSCHED");
+
         this->appendJobInfoToCSVOutputFile(batch_job.get(), "FAILED");
 #else
         throw std::runtime_error("BatschedBatchScheduler::processQueuesJobs(): BATSCHED_ENABLE should be set to 'on'");
@@ -381,10 +387,22 @@ namespace wrench {
     void BatschedBatchScheduler::processJobTermination(std::shared_ptr<BatchJob>batch_job) {
 
 #ifdef ENABLE_BATSCHED
-        this->notifyJobEventsToBatSched(std::to_string(batch_job->getJobID()), "TIMEOUT", "NOT_SUBMITTED", "", "JOB_COMPLETED");
+        // Fake it as a success
+        this->notifyJobEventsToBatSched(std::to_string(batch_job->getJobID()), "SUCCESS", "COMPLETED_KILLED", "terminated by users", "JOB_COMPLETED");
         this->appendJobInfoToCSVOutputFile(batch_job.get(), "TERMINATED");
 #else
         throw std::runtime_error("BatschedBatchScheduler::processQueuesJobs(): BATSCHED_ENABLE should be set to 'on'");
+#endif
+    }
+
+    void BatschedBatchScheduler::processUnknownJobTermination(std::string job_id) {
+
+#ifdef ENABLE_BATSCHED
+        // Fake it as a success
+        this->notifyJobEventsToBatSched(job_id, "SUCCESS", "COMPLETED_SUCCESSFULLY", "", "JOB_COMPLETED");
+//        this->appendJobInfoToCSVOutputFile(job_id, "TERMINATED");
+#else
+        throw std::runtime_error("BatschedBatchScheduler::processUknownJobTermination(): BATSCHED_ENABLE should be set to 'on'");
 #endif
     }
 
@@ -459,10 +477,10 @@ namespace wrench {
         // Consumed Energy
         csv_line += "0,";
         // Execution Time
-        double execution_time = batch_job->getEndingTimeStamp() - batch_job->getBeginTimeStamp();
+        double execution_time = batch_job->getEndingTimestamp() - batch_job->getBeginTimestamp();
         csv_line += std::to_string(execution_time) + ",";
         // Finish time
-        double finish_time = batch_job->getEndingTimeStamp();
+        double finish_time = batch_job->getEndingTimestamp();
         csv_line += std::to_string(finish_time) + ",";
         // Job ID
         csv_line += std::to_string(job_id++) + ",";
@@ -473,14 +491,14 @@ namespace wrench {
         // Requested time
         csv_line += std::to_string(batch_job->getRequestedTime()) + ",";
         // Starting time
-        double starting_time = batch_job->getBeginTimeStamp();
+        double starting_time = batch_job->getBeginTimestamp();
         csv_line += std::to_string(starting_time) + ",";
         // Stretch
-        double stretch = (batch_job->getEndingTimeStamp() - batch_job->getArrivalTimeStamp()) /
-                         (batch_job->getEndingTimeStamp() - batch_job->getBeginTimeStamp());
+        double stretch = (batch_job->getEndingTimestamp() - batch_job->getArrivalTimestamp()) /
+                         (batch_job->getEndingTimestamp() - batch_job->getBeginTimestamp());
         csv_line += std::to_string(stretch) + ",";
         // Submission time
-        double submission_time = batch_job->getArrivalTimeStamp();
+        double submission_time = batch_job->getArrivalTimestamp();
         csv_line += std::to_string(submission_time) + ",";
         // Success
         unsigned char success = 1;
@@ -493,10 +511,10 @@ namespace wrench {
         }
         csv_line += std::to_string(success) + ",";
         // Turnaround time
-        double turnaround_time = (batch_job->getEndingTimeStamp() - batch_job->getArrivalTimeStamp());
+        double turnaround_time = (batch_job->getEndingTimestamp() - batch_job->getArrivalTimestamp());
         csv_line += std::to_string(turnaround_time) + ",";
         // Waiting time
-        double waiting_time = (batch_job->getBeginTimeStamp() - batch_job->getArrivalTimeStamp());
+        double waiting_time = (batch_job->getBeginTimestamp() - batch_job->getArrivalTimestamp());
         csv_line += std::to_string(waiting_time) + ",";
         // Workload name
         csv_line += "wrench";

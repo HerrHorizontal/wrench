@@ -9,16 +9,14 @@
 
 #include <gtest/gtest.h>
 #include <wrench-dev.h>
-#include <wrench/services/helpers/ServiceTerminationDetectorMessage.h>
 
 #include "../../include/TestWithFork.h"
 #include "../../include/UniqueTmpPathPrefix.h"
 #include "../failure_test_util/ResourceSwitcher.h"
-#include "wrench/services/helpers/ServiceTerminationDetector.h"
 #include "../failure_test_util/SleeperVictim.h"
-#include "../failure_test_util/ComputerVictim.h"
+#include <wrench/workflow/failure_causes/HostError.h>
 
-XBT_LOG_NEW_DEFAULT_CATEGORY(service_start_restart_test, "Log category for ServiceStartRestartTest");
+WRENCH_LOG_CATEGORY(service_start_restart_test, "Log category for ServiceStartRestartTest");
 
 
 class ServiceReStartHostFailuresTest : public ::testing::Test {
@@ -43,7 +41,7 @@ protected:
                                          " 0 1\n"
                                          " 100 0";
 
-        std::string trace_file_name = "host.trace";
+        std::string trace_file_name = UNIQUE_PREFIX + "host.trace";
         std::string trace_file_path = "/tmp/"+trace_file_name;
 
         FILE *trace_file = fopen(trace_file_path.c_str(), "w");
@@ -123,10 +121,10 @@ void ServiceReStartHostFailuresTest::do_StartServiceOnDownHostTest_test() {
 
     // Create and initialize a simulation
     auto *simulation = new wrench::Simulation();
-    int argc = 1;
-    auto argv = (char **) calloc(1, sizeof(char *));
-    argv[0] = strdup("failure_test");
-
+    int argc = 2;
+    auto argv = (char **) calloc(argc, sizeof(char *));
+    argv[0] = strdup("unit_test");
+    argv[1] = strdup("--wrench-host-shutdown-simulation");
 
     ASSERT_NO_THROW(simulation->init(&argc, argv));
 
@@ -147,7 +145,8 @@ void ServiceReStartHostFailuresTest::do_StartServiceOnDownHostTest_test() {
     ASSERT_NO_THROW(simulation->launch());
 
     delete simulation;
-    free(argv[0]);
+    for (int i=0; i < argc; i++)
+     free(argv[i]);
     free(argv);
 }
 
@@ -213,10 +212,10 @@ void ServiceReStartHostFailuresTest::do_ServiceRestartTest_test() {
 
     // Create and initialize a simulation
     auto *simulation = new wrench::Simulation();
-    int argc = 1;
-    auto argv = (char **) calloc(1, sizeof(char *));
-    argv[0] = strdup("failure_test");
-
+    int argc = 2;
+    auto argv = (char **) calloc(argc, sizeof(char *));
+    argv[0] = strdup("unit_test");
+    argv[1] = strdup("--wrench-host-shutdown-simulation");
 
     ASSERT_NO_THROW(simulation->init(&argc, argv));
 
@@ -237,7 +236,8 @@ void ServiceReStartHostFailuresTest::do_ServiceRestartTest_test() {
     ASSERT_NO_THROW(simulation->launch());
 
     delete simulation;
-    free(argv[0]);
+    for (int i=0; i < argc; i++)
+     free(argv[i]);
     free(argv);
 }
 

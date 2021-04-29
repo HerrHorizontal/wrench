@@ -23,7 +23,7 @@
 #define NUM_STORAGE_SERVICES 10
 #define STORAGE_SERVICE_CAPACITY (0.5 * NUM_FILES * FILE_SIZE)
 
-XBT_LOG_NEW_DEFAULT_CATEGORY(storage_service_link_failures_test, "Log category for StorageServiceLinkFailuresTest");
+WRENCH_LOG_CATEGORY(storage_service_link_failures_test, "Log category for StorageServiceLinkFailuresTest");
 
 
 class StorageServiceLinkFailuresTest : public ::testing::Test {
@@ -330,8 +330,8 @@ void StorageServiceLinkFailuresTest::do_StorageServiceLinkFailureSimpleRandom_Te
     // Create and initialize a simulation
     auto simulation = new wrench::Simulation();
     int argc = 1;
-    char **argv = (char **) calloc(1, sizeof(char *));
-    argv[0] = strdup("storage_service_test");
+    char **argv = (char **) calloc(argc, sizeof(char *));
+    argv[0] = strdup("unit_test");
 
     simulation->init(&argc, argv);
 
@@ -415,6 +415,7 @@ void StorageServiceLinkFailuresTest::do_StorageServiceLinkFailureSimpleRandom_Te
 
     delete simulation;
 
-    free(argv[0]);
+    for (int i=0; i < argc; i++)
+     free(argv[i]);
     free(argv);
 }

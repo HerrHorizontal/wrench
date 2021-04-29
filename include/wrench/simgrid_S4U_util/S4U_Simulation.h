@@ -17,6 +17,7 @@
 
 namespace wrench {
 
+
     /***********************/
     /** \cond INTERNAL     */
     /***********************/
@@ -37,6 +38,8 @@ namespace wrench {
         static double getClock();
         static std::string getHostName();
         static bool hostExists(std::string hostname);
+        static bool linkExists(std::string linkname);
+        static std::vector<std::string> getRoute(std::string &src_host, std::string &dst_host);
         static unsigned int getHostNumCores(std::string hostname);
         static unsigned int getNumCores();
         static double getHostFlopRate(std::string hostname);
@@ -63,6 +66,8 @@ namespace wrench {
         static std::vector<std::string> getDisks(std::string hostname);
         static bool hostHasMountPoint(std::string hostname, std::string mount_point);
 
+        void checkLinkBandwidths();
+
         static void yield();
         static std::string getHostProperty(std::string hostname, std::string property_name);
 
@@ -80,6 +85,9 @@ namespace wrench {
         bool isInitialized();
         bool isPlatformSetup();
         static std::vector<std::string> getAllHostnames();
+        static std::vector<std::string> getAllLinknames();
+        static double getLinkBandwidth(std::string name);
+        static double getLinkUsage(std::string name);
         static std::map<std::string, std::vector<std::string>> getAllHostnamesByCluster();
         void shutdown();
 

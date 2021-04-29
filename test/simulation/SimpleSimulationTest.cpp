@@ -53,12 +53,12 @@ protected:
         output_file6 = workflow->addFile("output_file6", 10.0);
 
         // Create the tasks
-        task1 = workflow->addTask("task_1_10s_1core", 10.0, 1, 1, 1.0, 0);
-        task2 = workflow->addTask("task_2_10s_1core", 10.0, 1, 1, 1.0, 0);
-        task3 = workflow->addTask("task_3_10s_2cores", 10.0, 2, 2, 1.0, 0);
-        task4 = workflow->addTask("task_4_10s_2cores", 10.0, 2, 2, 1.0, 0);
-        task5 = workflow->addTask("task_5_30s_1_to_3_cores", 30.0, 1, 3, 1.0, 0);
-        task6 = workflow->addTask("task_6_10s_1_to_2_cores", 12.0, 1, 2, 1.0, 0);
+        task1 = workflow->addTask("task_1_10s_1core", 10.0, 1, 1, 0);
+        task2 = workflow->addTask("task_2_10s_1core", 10.0, 1, 1, 0);
+        task3 = workflow->addTask("task_3_10s_2cores", 10.0, 2, 2, 0);
+        task4 = workflow->addTask("task_4_10s_2cores", 10.0, 2, 2, 0);
+        task5 = workflow->addTask("task_5_30s_1_to_3_cores", 30.0, 1, 3, 0);
+        task6 = workflow->addTask("task_6_10s_1_to_2_cores", 12.0, 1, 2, 0);
         task1->setClusterID("ID1");
         task2->setClusterID("ID1");
         task3->setClusterID("ID1");
@@ -210,7 +210,7 @@ private:
             }
         }
 
-        wrench::StandardJob *one_task_jobs[5];
+        std::shared_ptr<wrench::StandardJob> one_task_jobs[5];
         int job_index = 0;
         for (auto task : tasks) {
             try {
@@ -230,13 +230,6 @@ private:
                 throw std::runtime_error(e.what());
             }
 
-            // Try to forget this job, which should NOT be fine
-            try {
-                job_manager->forgetJob(one_task_jobs[job_index]);
-                throw std::runtime_error("Should not be able to forget a pending/running job");
-            } catch (wrench::WorkflowExecutionException &e) {
-            }
-
             // Get the job's service-specific arguments (coverage)
             one_task_jobs[job_index]->getServiceSpecificArguments();
 
@@ -250,12 +243,26 @@ private:
         }
 
         // Try to create and submit a job with tasks that are pending, which should fail
-        wrench::StandardJob *bogus_job = job_manager->createStandardJob({*(tasks.begin())}, {}, {}, {}, {});
+        auto bogus_job = job_manager->createStandardJob({*(tasks.begin())}, {}, {}, {}, {});
         try {
             job_manager->submitJob(bogus_job, vm_cs);
             throw std::runtime_error("Should not be able to create a job with PENDING tasks");
         } catch (std::invalid_argument &e) {
         }
+
+        // For coverage
+        wrench::Simulation::getLinknameList();
+        wrench::Simulation::getLinkBandwidth("1");
+        wrench::Simulation::getLinkUsage("1");
+
+        // For coverage
+        std::string src_host = "DualCoreHost";
+        std::string dst_host = "QuadCoreHost";
+        auto links = wrench::Simulation::getRoute(src_host, dst_host);
+        if ((links.size() != 1) || (*links.begin() != "1")) {
+            throw std::runtime_error("Invalid route between hosts returned");
+        }
+
 
         // Wait for workflow execution events
         for (auto const & task : tasks) {
@@ -278,17 +285,12 @@ private:
 
         {
             // Try to create and submit a job with tasks that are completed, which should fail
-            wrench::StandardJob *bogus_job = job_manager->createStandardJob({*(++tasks.begin())}, {}, {}, {}, {});
+            auto bogus_job = job_manager->createStandardJob({*(++tasks.begin())}, {}, {}, {}, {});
             try {
                 job_manager->submitJob(bogus_job, vm_cs);
                 throw std::runtime_error("Should not be able to create a job with PENDING tasks");
             } catch (std::invalid_argument &e) {
             }
-        }
-
-        // Try to forget the completed jobs
-        for (auto &one_task_job : one_task_jobs) {
-            job_manager->forgetJob(one_task_job);
         }
 
         // For coverage,
@@ -320,8 +322,6 @@ private:
         data_movement_manager->kill();
         job_manager->kill();
 
-
-
         return 0;
     }
 };
@@ -335,7 +335,7 @@ void SimpleSimulationTest::do_getReadyTasksTest_test() {
     // Create and initialize a simulation
     auto *simulation = new wrench::Simulation();
     int argc = 1;
-    auto argv = (char **) calloc(1, sizeof(char *));
+    auto argv = (char **) calloc(argc, sizeof(char *));
     argv[0] = strdup("unit_test");
 
 
@@ -436,7 +436,8 @@ void SimpleSimulationTest::do_getReadyTasksTest_test() {
     ASSERT_NO_THROW(simulation->launch());
 
     delete simulation;
-    free(argv[0]);
+    for (int i=0; i < argc; i++)
+     free(argv[i]);
     free(argv);
 }
 

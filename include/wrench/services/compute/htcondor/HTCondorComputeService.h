@@ -28,7 +28,8 @@ namespace wrench {
     private:
         std::map<std::string, std::string> default_property_values = {
                 {HTCondorComputeServiceProperty::SUPPORTS_PILOT_JOBS,    "true"},
-                {HTCondorComputeServiceProperty::SUPPORTS_STANDARD_JOBS, "true"}
+                {HTCondorComputeServiceProperty::SUPPORTS_STANDARD_JOBS, "true"},
+                {HTCondorComputeServiceProperty::SUPPORTS_GRID_UNIVERSE, "false"},
         };
 
         std::map<std::string, double> default_messagepayload_values = {
@@ -47,20 +48,23 @@ namespace wrench {
                                const std::string &pool_name,
                                std::set<ComputeService *> compute_resources,
                                std::map<std::string, std::string> property_list = {},
-                               std::map<std::string, double> messagepayload_list = {});
+                               std::map<std::string, double> messagepayload_list = {},
+                               ComputeService *grid_universe_batch_service = nullptr);
 
         /***********************/
         /** \cond DEVELOPER   **/
         /***********************/
 
-        void submitStandardJob(StandardJob *job,
-                               std::map<std::string, std::string> &service_specific_arguments) override;
+        void submitStandardJob(std::shared_ptr<StandardJob> job,
+                               const std::map<std::string, std::string> &service_specific_arguments) override;
 
-        void submitPilotJob(PilotJob *job, std::map<std::string, std::string> &service_specific_arguments) override;
+        void submitPilotJob(std::shared_ptr<PilotJob> job, const std::map<std::string, std::string> &service_specific_arguments) override;
 
         std::shared_ptr<StorageService> getLocalStorageService() const;
 
         void setLocalStorageService(std::shared_ptr<StorageService> local_storage_service);
+
+        bool supportsGridUniverse();
 
         /***********************/
         /** \endcond          **/
@@ -73,9 +77,9 @@ namespace wrench {
 
         ~HTCondorComputeService() override;
 
-        void terminateStandardJob(StandardJob *job) override;
+        void terminateStandardJob(std::shared_ptr<StandardJob> job) override;
 
-        void terminatePilotJob(PilotJob *job) override;
+        void terminatePilotJob(std::shared_ptr<PilotJob> job) override;
 
         /***********************/
         /** \endcond          **/
@@ -86,11 +90,11 @@ namespace wrench {
 
         bool processNextMessage();
 
-        void processSubmitStandardJob(const std::string &answer_mailbox, StandardJob *job,
-                                      std::map<std::string, std::string> &service_specific_args);
+        void processSubmitStandardJob(const std::string &answer_mailbox, std::shared_ptr<StandardJob>job,
+                                      const std::map<std::string, std::string> &service_specific_args);
 
-        void processSubmitPilotJob(const std::string &answer_mailbox, PilotJob *job,
-                                   std::map<std::string, std::string> &service_specific_args);
+        void processSubmitPilotJob(const std::string &answer_mailbox, std::shared_ptr<PilotJob>job,
+                                   const std::map<std::string, std::string> &service_specific_args);
 
         void terminate();
 

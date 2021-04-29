@@ -18,7 +18,7 @@
 #include "../failure_test_util/SleeperVictim.h"
 #include "../failure_test_util/ComputerVictim.h"
 
-XBT_LOG_NEW_DEFAULT_CATEGORY(failure_detector_host_failure_test, "Log category for FailureDetectorHostFailuresTest");
+WRENCH_LOG_CATEGORY(failure_detector_host_failure_test, "Log category for FailureDetectorHostFailuresTest");
 
 
 class FailureDetectorHostFailuresTest : public ::testing::Test {
@@ -171,9 +171,10 @@ void FailureDetectorHostFailuresTest::do_FailureDetectorForSleeperTest_test() {
 
     // Create and initialize a simulation
     auto *simulation = new wrench::Simulation();
-    int argc = 1;
-    auto argv = (char **) calloc(1, sizeof(char *));
-    argv[0] = strdup("failure_test");
+    int argc = 2;
+    auto argv = (char **) calloc(argc, sizeof(char *));
+    argv[0] = strdup("unit_test");
+    argv[1] = strdup("--wrench-host-shutdown-simulation");
 
 
     ASSERT_NO_THROW(simulation->init(&argc, argv));
@@ -195,7 +196,8 @@ void FailureDetectorHostFailuresTest::do_FailureDetectorForSleeperTest_test() {
     ASSERT_NO_THROW(simulation->launch());
 
     delete simulation;
-    free(argv[0]);
+    for (int i=0; i < argc; i++)
+     free(argv[i]);
     free(argv);
 }
 
@@ -291,9 +293,10 @@ void FailureDetectorHostFailuresTest::do_FailureDetectorForComputerTest_test() {
 
     // Create and initialize a simulation
     auto *simulation = new wrench::Simulation();
-    int argc = 1;
-    auto argv = (char **) calloc(1, sizeof(char *));
-    argv[0] = strdup("failure_test");
+    int argc = 2;
+    auto argv = (char **) calloc(argc, sizeof(char *));
+    argv[0] = strdup("unit_test");
+    argv[1] = strdup("--wrench-host-shutdown-simulation");
 
 
     ASSERT_NO_THROW(simulation->init(&argc, argv));
@@ -315,6 +318,7 @@ void FailureDetectorHostFailuresTest::do_FailureDetectorForComputerTest_test() {
     ASSERT_NO_THROW(simulation->launch());
 
     delete simulation;
-    free(argv[0]);
+    for (int i=0; i < argc; i++)
+     free(argv[i]);
     free(argv);
 }

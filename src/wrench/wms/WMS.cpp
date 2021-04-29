@@ -18,11 +18,10 @@
 #include "wrench/managers/DataMovementManager.h"
 #include "wrench/services/compute/ComputeService.h"
 #include "wrench/services/compute/bare_metal/BareMetalComputeService.h"
-#include "wrench/services/compute/cloud/CloudComputeService.h"
-#include "wrench/services/compute/virtualized_cluster/VirtualizedClusterComputeService.h"
 #include "wrench/services/compute/batch/BatchComputeService.h"
+#include <wrench/workflow/failure_causes/NetworkError.h>
 
-WRENCH_LOG_NEW_DEFAULT_CATEGORY(wms, "Log category for WMS");
+WRENCH_LOG_CATEGORY(wrench_core_wms, "Log category for WMS");
 
 namespace wrench {
 
@@ -91,7 +90,7 @@ namespace wrench {
                                        new AlarmWMSDeferredStartMessage(0), "wms_start");
 
             // Wait for a message
-            std::shared_ptr<SimulationMessage> message = nullptr;
+            std::unique_ptr<SimulationMessage> message = nullptr;
 
             try {
                 message = S4U_Mailbox::getMessage(this->mailbox_name);
@@ -103,7 +102,7 @@ namespace wrench {
                 std::runtime_error("Got a NULL message... Likely this means the WMS cannot be started. Aborting!");
             }
 
-            if (auto msg = std::dynamic_pointer_cast<AlarmWMSDeferredStartMessage>(message)) {
+            if (auto msg = dynamic_cast<AlarmWMSDeferredStartMessage*>(message.get())) {
                 // The WMS can be started
             } else {
                 throw std::runtime_error("WMS::checkDeferredStart(): Unexpected " + message->getName() + " message");
@@ -196,6 +195,23 @@ namespace wrench {
         }
 
         return true;
+    }
+
+    /**
+     * @brief  Wait for a workflow execution event
+     * @param timeout: a timeout value in seconds
+     * @return the event
+     */
+    std::shared_ptr<WorkflowExecutionEvent> WMS::waitForNextEvent(double timeout) {
+        return workflow->waitForNextExecutionEvent(timeout);
+    }
+
+    /**
+     * @brief  Wait for a workflow execution event
+     * @return the event
+     */
+    std::shared_ptr<WorkflowExecutionEvent> WMS::waitForNextEvent() {
+        return workflow->waitForNextExecutionEvent();
     }
 
     /**
@@ -349,9 +365,9 @@ namespace wrench {
      *
      * @return an energy meter
      */
-    std::shared_ptr<EnergyMeter> WMS::createEnergyMeter(const std::map<std::string, double> &measurement_periods) {
-        auto energy_meter_raw_ptr = new EnergyMeter(this->getSharedPtr<WMS>(), measurement_periods);
-        std::shared_ptr<EnergyMeter> energy_meter = std::shared_ptr<EnergyMeter>(energy_meter_raw_ptr);
+    std::shared_ptr<EnergyMeterService> WMS::createEnergyMeter(const std::map<std::string, double> &measurement_periods) {
+        auto energy_meter_raw_ptr = new EnergyMeterService(this->hostname, measurement_periods);
+        std::shared_ptr<EnergyMeterService> energy_meter = std::shared_ptr<EnergyMeterService>(energy_meter_raw_ptr);
         energy_meter->simulation = this->simulation;
         energy_meter->start(energy_meter, true, false); // Always daemonize, no auto-restart
         return energy_meter;
@@ -363,13 +379,43 @@ namespace wrench {
      * @param measurement_period: the measurement period
      * @return an energy meter
      */
-    std::shared_ptr<EnergyMeter>
+    std::shared_ptr<EnergyMeterService>
     WMS::createEnergyMeter(const std::vector<std::string> &hostnames, double measurement_period) {
-        auto energy_meter_raw_ptr = new EnergyMeter(this->getSharedPtr<WMS>(), hostnames, measurement_period);
-        std::shared_ptr<EnergyMeter> energy_meter = std::shared_ptr<EnergyMeter>(energy_meter_raw_ptr);
+        auto energy_meter_raw_ptr = new EnergyMeterService(this->hostname, hostnames, measurement_period);
+        std::shared_ptr<EnergyMeterService> energy_meter = std::shared_ptr<EnergyMeterService>(energy_meter_raw_ptr);
         energy_meter->simulation = this->simulation;
         energy_meter->start(energy_meter, true, false); // Always daemonize, no auto-restart
         return energy_meter;
+    }
+
+    /**
+     * @brief Instantiate and start a bandwidth meter
+     *
+     * @param measurement_periods: the measurement period for each metered link
+     *
+     * @return a link meter
+     */
+    std::shared_ptr<BandwidthMeterService> WMS::createBandwidthMeter(const std::map<std::string, double> &measurement_periods) {
+        auto bandwidth_meter_raw_ptr = new BandwidthMeterService(this->hostname, measurement_periods);
+        std::shared_ptr<BandwidthMeterService> bandwidth_meter = std::shared_ptr<BandwidthMeterService>(bandwidth_meter_raw_ptr);
+        bandwidth_meter->simulation = this->simulation;
+        bandwidth_meter->start(bandwidth_meter, true, false); // Always daemonize, no auto-restart
+        return bandwidth_meter;
+    }
+
+    /**
+     * @brief Instantiate and start a bandwidth meter
+     * @param linknames: the list of metered links, as linknames
+     * @param measurement_period: the measurement period
+     * @return a link meter
+     */
+    std::shared_ptr<BandwidthMeterService>
+    WMS::createBandwidthMeter(const std::vector<std::string> &linknames, double measurement_period) {
+        auto bandwidth_meter_raw_ptr = new BandwidthMeterService(this->hostname, linknames, measurement_period);
+        std::shared_ptr<BandwidthMeterService> bandwidth_meter = std::shared_ptr<BandwidthMeterService>(bandwidth_meter_raw_ptr);
+        bandwidth_meter->simulation = this->simulation;
+        bandwidth_meter->start(bandwidth_meter, true, false); // Always daemonize, no auto-restart
+        return bandwidth_meter;
     }
 
 

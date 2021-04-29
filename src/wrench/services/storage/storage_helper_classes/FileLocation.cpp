@@ -13,7 +13,7 @@
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/classification.hpp>
 
-//WRENCH_LOG_NEW_DEFAULT_CATEGORY(file_location, "Log category for FileLocation");
+//WRENCH_LOG_CATEGORY(wrench_core_file_location, "Log category for FileLocation");
 
 
 namespace wrench {
@@ -39,6 +39,30 @@ namespace wrench {
                                         "Call the version of this method that takes a mount point argument");
         }
         return LOCATION(ss, *(ss->getMountPoints().begin()));
+    }
+
+    /**
+     * @brief File location specifier for a storage service's (single) mount point root
+     * Used in case of NFS with page cache.
+     * @param ss: storage service on the client (whose the page cache that data is written to)
+     * @param server_ss: a server storage service in NFS that stores the file on disk
+     * @return a file location specification
+     *
+     * @throw std::invalid_argument
+     */
+    std::shared_ptr<FileLocation> FileLocation::LOCATION(std::shared_ptr<StorageService> ss,
+                                                         std::shared_ptr<StorageService> server_ss) {
+        if (ss == nullptr) {
+            throw std::invalid_argument("FileLocation::LOCATION(): Cannot pass nullptr storage service");
+        }
+
+        if (ss->hasMultipleMountPoints()) {
+            throw std::invalid_argument("FileLocation::LOCATION(): Storage Service has multiple mount points. "
+                                        "Call the version of this method that takes a mount point argument");
+        }
+        std::shared_ptr<FileLocation> location = LOCATION(ss, *(ss->getMountPoints().begin()));
+        location->server_storage_service = server_ss;
+        return location;
     }
 
     /**
@@ -110,6 +134,14 @@ namespace wrench {
     }
 
     /**
+     * @brief Get the location's server storage service
+     * @return a storage service
+     */
+    std::shared_ptr<StorageService> FileLocation::getServerStorageService() {
+        return this->server_storage_service;
+    }
+
+    /**
      * @brief Get the location's mount point
      * @return a mount point
      */
@@ -145,7 +177,7 @@ namespace wrench {
 
     /**
      * @brief Method to sanitize an absolute path (and make it absolute if it's not)
-     * @param path
+     * @param path: an absolute path
      * @return
      */
     std::string FileLocation::sanitizePath(std::string path) {
@@ -201,8 +233,8 @@ namespace wrench {
 
     /**
      * @brief Helper method to find if a path is a proper prefix of another path
-     * @param a path
-     * @param another path 
+     * @param path1: a path
+     * @param path2: another path
      * @return true if one of the two paths is a proper prefix of the other
      */
     bool FileLocation::properPathPrefix(std::string path1, std::string path2) {
@@ -232,7 +264,5 @@ namespace wrench {
 
         return true;
     }
-
-
 }
 

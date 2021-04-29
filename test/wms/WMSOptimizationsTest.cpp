@@ -75,9 +75,9 @@ protected:
       workflow_unique_ptrs.push_back(std::unique_ptr<wrench::Workflow>(workflow));
 
       // Create the tasks
-      task1 = workflow->addTask("task_1_10s_1core", 10.0, 1, 1, 1.0, 0);
-      task2 = workflow->addTask("task_2_10s_1core", 10.0, 1, 1, 1.0, 0);
-      task3 = workflow->addTask("task_3_10s_1core", 10.0, 1, 1, 1.0, 0);
+      task1 = workflow->addTask("task_1_10s_1core", 10.0, 1, 1, 0);
+      task2 = workflow->addTask("task_2_10s_1core", 10.0, 1, 1, 0);
+      task3 = workflow->addTask("task_3_10s_1core", 10.0, 1, 1, 0);
 
       workflow->addControlDependency(task1, task2);
       workflow->addControlDependency(task1, task3);
@@ -139,7 +139,7 @@ private:
         // Run ready tasks with defined scheduler implementation
         unsigned int job_count = 0;
         for (const auto &task_map : ready_clustered_tasks) {
-          wrench::StandardJob *job = job_manager->createStandardJob(task_map.second, {}, {}, {}, {});
+          auto job = job_manager->createStandardJob(task_map.second, {}, {}, {}, {});
           job_manager->submitJob(job, this->test->compute_service);
           job_count++;
         }
@@ -171,7 +171,7 @@ void WMSOptimizationsTest::do_staticOptimization_test() {
   // Create and initialize a simulation
   auto simulation = new wrench::Simulation();
   int argc = 1;
-  auto argv = (char **) calloc(1, sizeof(char *));
+  auto argv = (char **) calloc(argc, sizeof(char *));
   argv[0] = strdup("unit_test");
 
   ASSERT_NO_THROW(simulation->init(&argc, argv));
@@ -207,7 +207,7 @@ void WMSOptimizationsTest::do_staticOptimization_test() {
 
   // Staging the input_file on the storage service
   for (auto const &f : workflow->getInputFiles()) {
-      ASSERT_NO_THROW(simulation->stageFile(f.second, storage_service));
+      ASSERT_NO_THROW(simulation->stageFile(f, storage_service));
   }
 
   // Running a "run a single task" simulation
@@ -220,7 +220,8 @@ void WMSOptimizationsTest::do_staticOptimization_test() {
   }
 
   delete simulation;
-  free(argv[0]);
+  for (int i=0; i < argc; i++)
+     free(argv[i]);
   free(argv);
 }
 
@@ -281,7 +282,7 @@ private:
 
         // Run ready tasks with defined scheduler implementation
         for (auto task : ready_tasks) {
-          wrench::StandardJob *job = job_manager->createStandardJob(task, {});
+          auto job = job_manager->createStandardJob(task, {});
           job_manager->submitJob(job, this->test->compute_service);
         }
 
@@ -308,7 +309,7 @@ void WMSOptimizationsTest::do_dynamicOptimization_test() {
   // Create and initialize a simulation
   auto simulation = new wrench::Simulation();
   int argc = 1;
-  auto argv = (char **) calloc(1, sizeof(char *));
+  auto argv = (char **) calloc(argc, sizeof(char *));
   argv[0] = strdup("unit_test");
 
   ASSERT_NO_THROW(simulation->init(&argc, argv));
@@ -345,7 +346,7 @@ void WMSOptimizationsTest::do_dynamicOptimization_test() {
   // Staging the input_file on the storage service
     // Staging the input_file on the storage service
     for (auto const &f : workflow->getInputFiles()) {
-        ASSERT_NO_THROW(simulation->stageFile(f.second, storage_service));
+        ASSERT_NO_THROW(simulation->stageFile(f, storage_service));
     }
 
   // Running a "run a single task" simulation
@@ -358,6 +359,7 @@ void WMSOptimizationsTest::do_dynamicOptimization_test() {
   ASSERT_GT(trace[2]->getContent()->getTask()->getStartDate(), trace[1]->getContent()->getTask()->getStartDate());
 
   delete simulation;
-  free(argv[0]);
+    for (int i=0; i < argc; i++)
+        free(argv[i]);
   free(argv);
 }

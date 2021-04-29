@@ -20,7 +20,7 @@
 #include "../failure_test_util/ResourceRandomRepeatSwitcher.h"
 
 
-XBT_LOG_NEW_DEFAULT_CATEGORY(comprehensive_integration_host_failure_test, "Log category for ComprehensiveIntegrationHostFailuresTest");
+WRENCH_LOG_CATEGORY(comprehensive_integration_host_failure_test, "Log category for ComprehensiveIntegrationHostFailuresTest");
 
 #define NUM_TASKS 100
 #define MAX_TASK_DURATION_WITH_ON_CORE 3600
@@ -409,9 +409,12 @@ void ComprehensiveIntegrationHostFailuresTest::do_IntegrationFailureTest_test(st
 
     // Create and initialize a simulation
     auto *simulation = new wrench::Simulation();
-    int argc = 1;
-    auto argv = (char **) calloc(1, sizeof(char *));
-    argv[0] = strdup("failure_test");
+    int argc = 2;
+    auto argv = (char **) calloc(argc, sizeof(char *));
+    argv[0] = strdup("unit_test");
+    argv[1] = strdup("--wrench-host-shutdown-simulation");
+
+//    argv[1] = strdup("--wrench-full-log");
 
     this->faulty_map = args;
 
@@ -467,7 +470,7 @@ void ComprehensiveIntegrationHostFailuresTest::do_IntegrationFailureTest_test(st
     srand(666);
     for (int i=0; i < NUM_TASKS; i++) {
 //        auto task = workflow->addTask("task_" + std::to_string(i), 1 + rand() % MAX_TASK_DURATION_WITH_ON_CORE, 1, 3, 1.0, 0);
-        auto task = workflow->addTask("task_" + std::to_string(i), MAX_TASK_DURATION_WITH_ON_CORE, 1, 3, 1.0, 40);
+        auto task = workflow->addTask("task_" + std::to_string(i), MAX_TASK_DURATION_WITH_ON_CORE, 1, 3, 40);
         auto input_file = workflow->addFile(task->getID() + ".input", 1 + rand() % 100);
         auto output_file = workflow->addFile(task->getID() + ".output", 1 + rand() % 100);
         task->addInputFile(input_file);
@@ -496,7 +499,8 @@ void ComprehensiveIntegrationHostFailuresTest::do_IntegrationFailureTest_test(st
     ASSERT_NO_THROW(simulation->launch());
 
     delete simulation;
-    free(argv[0]);
+    for (int i=0; i < argc; i++)
+     free(argv[i]);
     free(argv);
 }
 

@@ -52,12 +52,12 @@ protected:
         output_file6 = workflow->addFile("output_file6", 10.0);
 
         // Create the tasks
-        task1 = workflow->addTask("task_1_10s_1core", 10.0, 1, 1, 1.0, 0);
-        task2 = workflow->addTask("task_2_10s_1core", 10.0, 1, 1, 1.0, 0);
-        task3 = workflow->addTask("task_3_10s_2cores", 10.0, 2, 2, 1.0, 0);
-        task4 = workflow->addTask("task_4_10s_2cores", 10.0, 2, 2, 1.0, 0);
-        task5 = workflow->addTask("task_5_30s_1_to_3_cores", 30.0, 1, 3, 1.0, 0);
-        task6 = workflow->addTask("task_6_10s_1_to_2_cores", 12.0, 1, 2, 1.0, 0);
+        task1 = workflow->addTask("task_1_10s_1core", 10.0, 1, 1, 0);
+        task2 = workflow->addTask("task_2_10s_1core", 10.0, 1, 1, 0);
+        task3 = workflow->addTask("task_3_10s_2cores", 10.0, 2, 2, 0);
+        task4 = workflow->addTask("task_4_10s_2cores", 10.0, 2, 2, 0);
+        task5 = workflow->addTask("task_5_30s_1_to_3_cores", 30.0, 1, 3, 0);
+        task6 = workflow->addTask("task_6_10s_1_to_2_cores", 12.0, 1, 2, 0);
         task1->setClusterID("ID1");
         task2->setClusterID("ID1");
         task3->setClusterID("ID1");
@@ -198,7 +198,7 @@ private:
         auto vm_name = dynamically_created_compute_service->createVM(4, 10);
         auto vm_cs = dynamically_created_compute_service->startVM(vm_name);
 
-        wrench::StandardJob *one_task_jobs[5];
+        std::shared_ptr<wrench::StandardJob> one_task_jobs[5];
         int job_index = 0;
         for (auto task : tasks) {
             try {
@@ -243,13 +243,6 @@ private:
             }
         }
 
-        {
-            // Try to forget the completed jobs
-            for (auto & j : one_task_jobs) {
-                job_manager->forgetJob(j);
-            }
-        }
-
         return 0;
     }
 };
@@ -263,7 +256,7 @@ void DynamicServiceCreationTest::do_getReadyTasksTest_test() {
     // Create and initialize a simulation
     auto *simulation = new wrench::Simulation();
     int argc = 1;
-    auto argv = (char **) calloc(1, sizeof(char *));
+    auto argv = (char **) calloc(argc, sizeof(char *));
     argv[0] = strdup("unit_test");
 
 
@@ -311,7 +304,8 @@ void DynamicServiceCreationTest::do_getReadyTasksTest_test() {
     ASSERT_NO_THROW(simulation->launch());
 
     delete simulation;
-    free(argv[0]);
+    for (int i=0; i < argc; i++)
+        free(argv[i]);
     free(argv);
 }
 

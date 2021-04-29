@@ -1,9 +1,56 @@
 WRENCH Release Notes
 ------
 
+### WRENCH 1.8
+
+(February 18, 2021) This release includes a series of **new features**, **enhancements**, and **bug fixes**, including:
+
+- I/O simulation model that includes the key features of the Linux page cache ([#199](https://github.com/wrench-project/wrench/issues/199), [#202](https://github.com/wrench-project/wrench/issues/202), [#218](https://github.com/wrench-project/wrench/issues/218))  
+- Extended HTCondor component model with the Grid Universe ([#161](https://github.com/wrench-project/wrench/issues/161))
+- Improvements to the WRENCH Dashboard ([#170](https://github.com/wrench-project/wrench/issues/170), [#212](https://github.com/wrench-project/wrench/issues/212))
+- Improvements to documentation ([#219](https://github.com/wrench-project/wrench/issues/219) and code ([#189](https://github.com/wrench-project/wrench/issues/189), [#214](https://github.com/wrench-project/wrench/issues/214))
+
+**Note**: WRENCH 1.8 requires [SimGrid 3.26](https://simgrid.org)
+
+---
+
+### WRENCH 1.7
+
+(September 18, 2020) This release includes a series of **new features**, **enhancements**, and **bug fixes**, including:
+
+- Redesign of the WRENCH Dashboard: includes a number of graphs for visualizing the Gantt chart of the workflow execution, host utilization, network bandwidth usage, and energy consumption ([#171](https://github.com/wrench-project/wrench/issues/171), [#183](https://github.com/wrench-project/wrench/issues/183), [#184](https://github.com/wrench-project/wrench/issues/184), [#185](https://github.com/wrench-project/wrench/issues/185), [#186](https://github.com/wrench-project/wrench/issues/186), [#173](https://github.com/wrench-project/wrench/issues/173), [#195](https://github.com/wrench-project/wrench/issues/195))
+- Improvements to `BareMetalComputeService`: load is now equally distributed among hosts ([#169](https://github.com/wrench-project/wrench/issues/169)), and the service provides an API equivalent to the `squeue` Slurm command ([#176](https://github.com/wrench-project/wrench/issues/176))
+- Improvements to `CloudComputeService`: added a function to get the `ComputeService` for a VM based on its name ([#187](https://github.com/wrench-project/wrench/issues/187))
+- Improvements to `VirtualizedClusterComputeService`: added a function to get the physical host ([#190](https://github.com/wrench-project/wrench/issues/190))
+- Enabled support for capturing network link's usage during the simulation ([#182](https://github.com/wrench-project/wrench/issues/182)) 
+- Improvements to Simulation JSON output: added disk read/write failures ([#167](https://github.com/wrench-project/wrench/issues/167)), and network link usage ([#182](https://github.com/wrench-project/wrench/issues/182))
+- Added an exception handling for ensuring a link bandwidth in the platform file is not set to zero ([#181](https://github.com/wrench-project/wrench/issues/181))
+- Bug fixes and small enhancements: [#168](https://github.com/wrench-project/wrench/issues/168), [#172](https://github.com/wrench-project/wrench/issues/172), [#174](https://github.com/wrench-project/wrench/issues/174), [#178](https://github.com/wrench-project/wrench/issues/178), [#180](https://github.com/wrench-project/wrench/issues/180), [#191](https://github.com/wrench-project/wrench/issues/191), [#192](https://github.com/wrench-project/wrench/issues/192), [#200](https://github.com/wrench-project/wrench/issues/200)
+
+**Note**: WRENCH 1.7 requires [SimGrid 3.25](https://simgrid.org).
+
+---
+
+### WRENCH 1.6
+
+(May 7, 2020) This release includes a series of **new features**, **enhancements**, and **bug fixes**, including:
+
+- Refactored the WRENCH documentation: WRENCH 101 for users, and WRENCH 102 for developers ([#156](https://github.com/wrench-project/wrench/issues/156))
+- New collection of examples provided with WRENCH distribution: over 10 examples of simulators ([#157](https://github.com/wrench-project/wrench/issues/157))
+- Removed dependency to Lemon library: we now use Boost, which is already used by SimGrid ([#159](https://github.com/wrench-project/wrench/issues/159))
+- Simulation logging in now disabled by default: can be enabled using `--wrench-full-log` ([#158](https://github.com/wrench-project/wrench/issues/158))
+- Refactored the BatchComputeService class: includes a conservative backfilling algorithm for validation purposes ([#152](https://github.com/wrench-project/wrench/issues/152))
+- Improvements to simulation output processing and JSON output: includes task, host, disk I/O, and energy ([#154](https://github.com/wrench-project/wrench/issues/154), [#122](https://github.com/wrench-project/wrench/issues/122), [#129](https://github.com/wrench-project/wrench/issues/129), [#133](https://github.com/wrench-project/wrench/issues/133))
+- Improvements to the WRENCH Dashboard: [#130](https://github.com/wrench-project/wrench/issues/130), [#136](https://github.com/wrench-project/wrench/issues/136), [#137](https://github.com/wrench-project/wrench/issues/137), [#139](https://github.com/wrench-project/wrench/issues/139), [#146](https://github.com/wrench-project/wrench/issues/146), [#147](https://github.com/wrench-project/wrench/issues/147), [#148](https://github.com/wrench-project/wrench/issues/148), [#164](https://github.com/wrench-project/wrench/issues/164)
+- Bug fixes and small enhancements: [#110](https://github.com/wrench-project/wrench/issues/110), [#141](https://github.com/wrench-project/wrench/issues/141), [#143](https://github.com/wrench-project/wrench/issues/143), [#144](https://github.com/wrench-project/wrench/issues/144), [#145](https://github.com/wrench-project/wrench/issues/145), [#151](https://github.com/wrench-project/wrench/issues/151), [#153](https://github.com/wrench-project/wrench/issues/153), [#160](https://github.com/wrench-project/wrench/issues/160), [#162](https://github.com/wrench-project/wrench/issues/162), [#163](https://github.com/wrench-project/wrench/issues/163)
+
+**Note**: WRENCH 1.6 requires [SimGrid 3.25](https://simgrid.org).
+
+---
+
 ### WRENCH 1.5
 
-(Feb 07, 2020) This release includes a series of new features and bug fixes, including:
+(Feb 7, 2020) This release includes a series of new features and bug fixes, including:
 
 - Simulation of failures
 - WRENCH Dashboard

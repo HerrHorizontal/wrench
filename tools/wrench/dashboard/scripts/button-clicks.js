@@ -1,3 +1,67 @@
+function toggleDashboard(id) {
+    let el = $(`#btn-${id}`);
+    let els = document.getElementById(id);
+
+    if (el.hasClass("active")) {
+        el.removeClass("active");
+        els.style.display = 'none';
+        els.style.visibility = 'hidden';
+    } else {
+        el.addClass("active");
+        els.style.display = 'inline-block';
+        els.style.visibility = 'visible';
+    }
+}
+
+function toggleView(obj) {
+    if (currGraphState === "taskView") {
+        generateHostGanttChart(data, currZoomState["overall-graph-container"]);
+        currGraphState = "hostView";
+        obj.innerHTML = "<i class=\"exchange icon\"></i> Switch to Task View";
+    } else if (currGraphState === "hostView") {
+        generateGanttChart(data, null, currZoomState["overall-graph-container"]);
+        currGraphState = "taskView";
+        obj.innerHTML = "<i class=\"exchange icon\"></i> Switch to Host View";
+    }
+}
+
+function resizeBox(size, id) {
+    let width = size === "full" ? "sixteen" : "eight";
+    let otherSize = size === "full" ? "half" : "full";
+    document.getElementById(id).className = width + " wide column";
+    document.getElementById("dd-width-" + size + "-" + id).className = "check icon";
+    document.getElementById("dd-width-" + otherSize + "-" + id).className = "icon";
+}
+
+function resizeAllBox(size) {
+    let width = size === "full" ? "sixteen" : "eight";
+    let otherSize = size === "full" ? "half" : "full";
+    for (let i = 0; i < graphInfoArray.length; i++) {
+        let id = graphInfoArray[i].containerId;
+        document.getElementById(id).className = width + " wide column";
+        document.getElementById("dd-width-" + size + "-" + id).className = "check icon";
+        document.getElementById("dd-width-" + otherSize + "-" + id).className = "icon";
+    }
+}
+
+function toggleZoom(id) {
+    let zoom = id in currZoomState ? currZoomState[id] : true;
+    if (id === "host-utilization-graph-container") {
+        generateHostUtilizationChart(data, null, [], [], !zoom);
+    } else if (id === "overall-graph-container") {
+        if (currGraphState === "taskView") {
+            generateGanttChart(data, null, !zoom);
+        } else if (currGraphState === "hostView") {
+            generateHostGanttChart(data, !zoom);
+        }
+    } else if (id === "network-graph-container") {
+        generateBandwidthUsage(data, dataSizeUnits.KB, null, !zoom, []);
+    }
+    currZoomState[id] = !zoom;
+    document.getElementById("dd-zoom-" + id).className = !zoom ? "check icon" : "icon";
+}
+
+
 function showHideArrow(id, arrowId) {
     var overallDiv = $(`#${id}`)
     var arrow = $(`#${arrowId}`)
@@ -14,8 +78,8 @@ function showHideArrow(id, arrowId) {
 function getHostNames(data) {
     var hostNames = new Set();
 
-    data.forEach(function(task) {
-        var hostName = task['execution host'].hostname
+    data.forEach(function (task) {
+        var hostName = task[executionHostKey].hostname
         hostNames.add(hostName)
     })
 
@@ -30,74 +94,16 @@ function hostColoursJSONPopulated() {
     return false
 }
 
-function switchToHostView(data, selectedHost) {
-    var hostNames = getHostNames(data)
-
-    if (!hostColoursJSONPopulated()) {
-        hostNames.forEach(function(hostName) {
-            var colour = getRandomColour()
-            while (colour === '#FF0000' || colour === '#FFA500') {
-                colour = getRandomColour()
-            }
-            hostColours[hostName] = colour
-        })
-    }
-    
-
-    data.forEach(function(task) {
-        var hostName = task['execution host'].hostname
-        var sanitizedId = sanitizeId(task.task_id)
-        var taskRead = d3.select(`#${sanitizedId} .read`)
-        var taskCompute = d3.select(`#${sanitizedId} .compute`)
-        var taskWrite = d3.select(`#${sanitizedId} .write`)
-
-        taskRead.style("fill", hostColours[hostName])
-        taskRead.style("opacity", 1)
-
-        taskCompute.style("fill", hostColours[hostName])
-        taskCompute.style("opacity", 1)
-
-        taskWrite.style("fill", hostColours[hostName])
-        taskWrite.style("opacity", 1)
-
-        if (selectedHost !== '' && selectedHost !== hostName) {
-            taskRead.style("fill", "gray")
-            taskRead.style("opacity", 0.2)
-
-            taskCompute.style("fill", "gray")
-            taskCompute.style("opacity", 0.2)
-
-            taskWrite.style("fill", "gray")
-            taskWrite.style("opacity", 0.2)
-        }
-    })
+function showIoView() {
+    document.getElementById('show-io-view-button').style.display = 'none'
+    document.getElementById('hide-io-view-button').style.display = 'block'
+    generateGraph(data.contents, currGraphState, true, 1000, 1000)
 }
 
-function toggleView() {
-    var hostInstructions = document.getElementById("host-instructions")
-    var informationImg = document.getElementById("information-img")
-    if (currGraphState === "taskView") {
-        switchToHostView(data.contents, '')
-        d3.select("#y-axis-label").text("Host Name")
-        populateLegend("hostView")
-        d3.select("#toggle-view-button").text("Switch to Task View")
-        if (firstVisit) {
-            hostInstructions.style.display = "block"
-            informationImg.style.display = "none"
-        } else {
-            hostInstructions.style.display = "none"
-            informationImg.style.display = "inline-block"
-        }
-        currGraphState = "hostView"
-    } else if (currGraphState === "hostView") {
-        generateGraph(data.contents, "graph-container", "hostView", 1000, 1000)
-        d3.select("#y-axis-label").text("TaskID")
-        populateLegend("taskView")
-        d3.select("#toggle-view-button").text("Switch to Host View")
-        hostInstructions.style.display = "none"
-        informationImg.style.display = "none"
-        currGraphState = "taskView"
-    }
+function hideIoView() {
+    document.getElementById('show-io-view-button').style.display = 'block'
+    document.getElementById('hide-io-view-button').style.display = 'none'
+    generateGraph(data.contents, currGraphState, false, 1000, 1000)
 }
 
 function legendHover(hostName, id, alreadySelected) {
@@ -114,7 +120,6 @@ function legendHover(hostName, id, alreadySelected) {
 }
 
 
-
 function legendClick(hostName, id) {
     var legendElement = d3.select(`#${id}`)
     if (hostName === currentlySelectedHost.hostName) {
@@ -124,7 +129,7 @@ function legendClick(hostName, id) {
         legendElement.style("font-weight", "normal")
         switchToHostView(data.contents, "")
         return
-    } 
+    }
     if (currentlySelectedHost.hostName !== "" && hostName !== currentlySelectedHost.hostName) {
         // deselect different host
         var currentlySelectedLegendElement = d3.select(`#${currentlySelectedHost.id}`)

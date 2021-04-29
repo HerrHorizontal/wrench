@@ -7,11 +7,8 @@
  * (at your option) any later version.
  */
 
-#include <wrench/simgrid_S4U_util/S4U_Simulation.h>
 #include <wrench/logging/TerminalOutput.h>
 #include <wrench/simgrid_S4U_util/S4U_Mailbox.h>
-#include <wrench/services/compute/cloud/CloudComputeService.h>
-#include <wrench/services/compute/virtualized_cluster/VirtualizedClusterComputeService.h>
 #include <wrench/simulation/SimulationMessage.h>
 #include <wrench/services/ServiceMessage.h>
 #include <wrench/services/storage/StorageService.h>
@@ -20,10 +17,11 @@
 #include <services/storage/StorageServiceMessage.h>
 #include <wrench/workflow/WorkflowFile.h>
 #include <wrench/wms/WMS.h>
-#include "wrench/workflow/Workflow.h"
-#include "wrench/managers/DataMovementManager.h"
+#include <wrench/managers/DataMovementManager.h>
+#include  <wrench/workflow/failure_causes/FileAlreadyBeingCopied.h>
+#include  <wrench/workflow/failure_causes/NetworkError.h>
 
-WRENCH_LOG_NEW_DEFAULT_CATEGORY(data_movement_manager, "Log category for Data Movement Manager");
+WRENCH_LOG_CATEGORY(wrench_core_data_movement_manager, "Log category for Data Movement Manager");
 
 namespace wrench {
 
@@ -175,7 +173,7 @@ namespace wrench {
  */
     bool DataMovementManager::processNextMessage() {
 
-        std::shared_ptr<SimulationMessage> message = nullptr;
+        std::unique_ptr<SimulationMessage> message = nullptr;
 
         try {
             message = S4U_Mailbox::getMessage(this->mailbox_name);
@@ -186,11 +184,11 @@ namespace wrench {
 
         WRENCH_INFO("Data Movement Manager got a %s message", message->getName().c_str());
 
-        if (auto msg = std::dynamic_pointer_cast<ServiceStopDaemonMessage>(message)) {
+        if (auto msg = dynamic_cast<ServiceStopDaemonMessage*>(message.get())) {
             // There shouldn't be any need to clean any state up
             return false;
 
-        } else if (auto msg = std::dynamic_pointer_cast<StorageServiceFileCopyAnswerMessage>(message)) {
+        } else if (auto msg = dynamic_cast<StorageServiceFileCopyAnswerMessage*>(message.get())) {
 
             // Remove the record and find the File Registry Service, if any
             DataMovementManager::CopyRequestSpecs request(msg->file, msg->src, msg->dst, nullptr);

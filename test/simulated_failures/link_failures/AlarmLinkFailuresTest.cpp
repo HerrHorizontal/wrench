@@ -18,7 +18,7 @@
 #include "../failure_test_util/ResourceSwitcher.h"
 #include <wms/WMSMessage.h>
 
-XBT_LOG_NEW_DEFAULT_CATEGORY(alarm_link_failures_test, "Log category for AlarmLinkFailuresTest");
+WRENCH_LOG_CATEGORY(alarm_link_failures_test, "Log category for AlarmLinkFailuresTest");
 
 
 class AlarmLinkFailuresTest : public ::testing::Test {
@@ -111,8 +111,8 @@ void AlarmLinkFailuresTest::do_AlarmLinkFailure_Test() {
     // Create and initialize a simulation
     auto simulation = new wrench::Simulation();
     int argc = 1;
-    char **argv = (char **) calloc(1, sizeof(char *));
-    argv[0] = strdup("file_registry_test");
+    char **argv = (char **) calloc(argc, sizeof(char *));
+    argv[0] = strdup("unit_test");
 
     simulation->init(&argc, argv);
 
@@ -132,6 +132,7 @@ void AlarmLinkFailuresTest::do_AlarmLinkFailure_Test() {
 
     delete simulation;
 
-    free(argv[0]);
+    for (int i=0; i < argc; i++)
+        free(argv[i]);
     free(argv);
 }

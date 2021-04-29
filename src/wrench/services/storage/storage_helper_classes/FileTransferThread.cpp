@@ -16,8 +16,9 @@
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/classification.hpp>
 #include <wrench/services/storage/storage_helpers/FileTransferThread.h>
+#include <wrench/services/memory/MemoryManager.h>
 
-WRENCH_LOG_NEW_DEFAULT_CATEGORY(file_transfer_thread, "Log category for File Transfer Thread");
+WRENCH_LOG_CATEGORY(wrench_core_file_transfer_thread, "Log category for File Transfer Thread");
 
 
 namespace wrench {
@@ -159,7 +160,7 @@ namespace wrench {
         std::shared_ptr<NetworkError> failure_cause = nullptr;
 
         WRENCH_INFO("New FileTransferThread (file=%s, src_mailbox=%s; src_location=%s; dst_mailbox=%s; dst_location=%s; "
-                    "answer_mailbox_if_copy=%s; answer_mailbox_if_copy=%s; answer_mailbox_if_copy=%s",
+                    "answer_mailbox_if_read=%s; answer_mailbox_if_write=%s; answer_mailbox_if_copy=%s; buffer size=%lu",
                     file->getID().c_str(),
                     (src_mailbox.empty() ? "none" : src_mailbox.c_str()),
                     (src_location == nullptr ? "none" : src_location->toString().c_str()),
@@ -167,7 +168,8 @@ namespace wrench {
                     (dst_location == nullptr ? "none" : dst_location->toString().c_str()),
                     (answer_mailbox_if_read.empty() ? "none" : answer_mailbox_if_read.c_str()),
                     (answer_mailbox_if_write.empty() ? "none" : answer_mailbox_if_write.c_str()),
-                    (answer_mailbox_if_copy.empty() ? "none" : answer_mailbox_if_copy.c_str())
+                    (answer_mailbox_if_copy.empty() ? "none" : answer_mailbox_if_copy.c_str()),
+                    this->buffer_size
         );
 
         // Create a message to send back (some field of which may be overwritten below)
@@ -208,7 +210,7 @@ namespace wrench {
 
         } else if ((this->src_location) and (this->src_location->getStorageService() == this->parent) and
                    (this->dst_location) and (this->dst_location->getStorageService() == this->parent)) {
-            /** Copying a file local file */
+            /** Copying a local file */
             copyFileLocally(this->file, this->src_location, this->dst_location);
 
         } else if (((this->src_location) and (this->dst_location) and
@@ -257,13 +259,11 @@ namespace wrench {
 
         } else {
             /** Non-zero buffer size */
-
             bool done = false;
 
             // Receive the first chunk
             auto msg = S4U_Mailbox::getMessage(mailbox);
-            if (auto file_content_chunk_msg =
-                    std::dynamic_pointer_cast<StorageServiceFileContentChunkMessage>(msg)) {
+            if (auto file_content_chunk_msg = dynamic_cast<StorageServiceFileContentChunkMessage*>(msg.get())) {
                 done = file_content_chunk_msg->last_chunk;
             } else {
                 throw std::runtime_error("FileTransferThread::receiveFileFromNetwork() : Received an unexpected [" +
@@ -272,17 +272,37 @@ namespace wrench {
 
             try {
 
+                if (Simulation::isPageCachingEnabled()) {
+                    simulation->getMemoryManagerByHost(location->getStorageService()->hostname)->log();
+//                    simulation->getMemoryManagerByHost(location->getStorageService()->hostname)->fincore();
+                }
+
                 // Receive chunks and write them to disk
                 while (not done) {
                     // Issue the receive
                     auto req = S4U_Mailbox::igetMessage(mailbox);
-                    // Write to disk
-                    S4U_Simulation::writeToDisk(msg->payload, location->getStorageService()->hostname,
+
+                    // In NFS, write to cache only if the current host not the server host where the file is stored
+                    // If the current host is file server, write to disk directly
+                    if (Simulation::isPageCachingEnabled()) {
+
+                        bool write_locally = location->getServerStorageService() == nullptr ;
+
+                        if (write_locally) {
+                            simulation->writebackWithMemoryCache(file, msg->payload, location, true);
+                        } else {
+                            simulation->writeThroughWithMemoryCache(file, msg->payload, location);
+                        }
+                    } else {
+                        // Write to disk
+                        simulation->writeToDisk(msg->payload, location->getStorageService()->hostname,
                                                 location->getMountPoint());
+                    }
+
                     // Wait for the comm to finish
                     msg = req->wait();
                     if (auto file_content_chunk_msg =
-                            std::dynamic_pointer_cast<StorageServiceFileContentChunkMessage>(msg)) {
+                            dynamic_cast<StorageServiceFileContentChunkMessage*>(msg.get())) {
                         done = file_content_chunk_msg->last_chunk;
                     } else {
                         throw std::runtime_error(
@@ -290,9 +310,27 @@ namespace wrench {
                                 msg->getName() + "] message!");
                     }
                 }
+
                 // I/O for the last chunk
-                S4U_Simulation::writeToDisk(msg->payload, location->getStorageService()->hostname,
+                if (Simulation::isPageCachingEnabled()) {
+                    bool write_locally = location->getServerStorageService() == nullptr ;
+
+                    if (write_locally) {
+                        simulation->writebackWithMemoryCache(file, msg->payload, location, true);
+                    } else {
+                        simulation->writeThroughWithMemoryCache(file, msg->payload, location);
+                    }
+                } else {
+//                     Write to disk
+                    simulation->writeToDisk(msg->payload, location->getStorageService()->hostname,
                                             location->getMountPoint());
+                }
+
+                if (Simulation::isPageCachingEnabled()) {
+                    simulation->getMemoryManagerByHost(location->getStorageService()->hostname)->log();
+//                    simulation->getMemoryManagerByHost(location->getStorageService()->hostname)->fincore();
+                }
+
             } catch (std::shared_ptr<NetworkError> &e) {
                 throw;
             }
@@ -325,21 +363,38 @@ namespace wrench {
                 // Sending a zero-byte file is really sending a 1-byte file
                 double remaining = std::max<double>(1, file->getSize());
 
+                if (Simulation::isPageCachingEnabled()) {
+                    simulation->getMemoryManagerByHost(location->getStorageService()->hostname)->log();
+                }
+
                 while (remaining > 0) {
                     double chunk_size = std::min<double>(this->buffer_size, remaining);
-                    WRENCH_INFO("Reading %s bytes from disk", std::to_string(chunk_size).c_str());
-                    S4U_Simulation::readFromDisk(chunk_size, location->getStorageService()->hostname,
+
+                    if (Simulation::isPageCachingEnabled()) {
+                        simulation->readWithMemoryCache(file, chunk_size, location);
+                    } else {
+                        WRENCH_INFO("Reading %s bytes from disk", std::to_string(chunk_size).c_str());
+                        simulation->readFromDisk(chunk_size, location->getStorageService()->hostname,
                                                  location->getMountPoint());
-                    remaining -= this->buffer_size;
+                    }
+
+                    remaining -= (double)(this->buffer_size);
                     if (req) {
                         req->wait();
+//                        WRENCH_INFO("Bytes sent over the network were received");
                     }
+//                    WRENCH_INFO("Asynchronously sending %s bytes over the network", std::to_string(chunk_size).c_str());
                     req = S4U_Mailbox::iputMessage(mailbox,
                                                    new StorageServiceFileContentChunkMessage(
                                                            this->file,
-                                                           chunk_size, (remaining <= 0)));
+                                                           (unsigned long)chunk_size, (remaining <= 0)));
+                }
+                if (Simulation::isPageCachingEnabled()) {
+                    simulation->getMemoryManagerByHost(location->getStorageService()->hostname)->log();
+//                    simulation->getMemoryManagerByHost(location->getStorageService()->hostname)->fincore();
                 }
                 req->wait();
+                WRENCH_INFO("Bytes sent over the network were received");
             } catch (std::shared_ptr<NetworkError> &e) {
                 throw;
             }
@@ -375,25 +430,25 @@ namespace wrench {
 
         } else {
             // Read the first chunk
-            S4U_Simulation::readFromDisk(to_send, src_location->getStorageService()->hostname,
+            simulation->readFromDisk(to_send, src_location->getStorageService()->hostname,
                                          src_location->getMountPoint());
             // start the pipeline
             while (remaining > this->buffer_size) {
 
-                S4U_Simulation::readFromDiskAndWriteToDiskConcurrently(
+                simulation->readFromDiskAndWriteToDiskConcurrently(
                         this->buffer_size, this->buffer_size, src_location->getStorageService()->hostname,
                         src_location->getMountPoint(), dst_location->getMountPoint());
 
 //
-//                S4U_Simulation::writeToDisk(this->buffer_size, dst_location->getStorageService()->hostname,
+//                simulation->writeToDisk(this->buffer_size, dst_location->getStorageService()->hostname,
 //                                            dst_location->getMountPoint());
-//                S4U_Simulation::readFromDisk(this->buffer_size, src_location->getStorageService()->hostname,
+//                simulation->readFromDisk(this->buffer_size, src_location->getStorageService()->hostname,
 //                                             src_location->getMountPoint());
 
                 remaining -= this->buffer_size;
             }
             // Write the last chunk
-            S4U_Simulation::writeToDisk(remaining, dst_location->getStorageService()->hostname,
+            simulation->writeToDisk(remaining, dst_location->getStorageService()->hostname,
                                         dst_location->getMountPoint());
         }
 
@@ -443,7 +498,7 @@ namespace wrench {
         }
 
         // Wait for a reply to the request
-        std::shared_ptr<SimulationMessage> message = nullptr;
+        std::unique_ptr<SimulationMessage> message = nullptr;
 
         try {
             message = S4U_Mailbox::getMessage(request_answer_mailbox, this->network_timeout);
@@ -452,7 +507,7 @@ namespace wrench {
         }
 
 
-        if (auto msg = std::dynamic_pointer_cast<StorageServiceFileReadAnswerMessage>(message)) {
+        if (auto msg = dynamic_cast<StorageServiceFileReadAnswerMessage*>(message.get())) {
             // If it's not a success, throw an exception
             if (not msg->success) {
                 throw msg->failure_cause;
@@ -476,7 +531,7 @@ namespace wrench {
                 // Receive the first chunk
                 auto msg = S4U_Mailbox::getMessage(mailbox_that_should_receive_file_content);
                 if (auto file_content_chunk_msg =
-                        std::dynamic_pointer_cast<StorageServiceFileContentChunkMessage>(msg)) {
+                        dynamic_cast<StorageServiceFileContentChunkMessage*>(msg.get())) {
                     done = file_content_chunk_msg->last_chunk;
                 } else {
                     throw std::runtime_error("FileTransferThread::downloadFileFromStorageService(): Received an unexpected [" +
@@ -487,16 +542,22 @@ namespace wrench {
                 while (not done) {
                     // Issue the receive
                     auto req = S4U_Mailbox::igetMessage(mailbox_that_should_receive_file_content);
-
+//                    WRENCH_INFO("Downloaded of %f of file  %s from location %s",
+//                                msg->payload, file->getID().c_str(), src_location->toString().c_str());
                     // Do the I/O
-                    S4U_Simulation::writeToDisk(msg->payload,
+                    if (Simulation::isPageCachingEnabled()) {
+                        simulation->writebackWithMemoryCache(file, msg->payload, dst_location, false);
+                    } else {
+                        // Write to disk
+                        simulation->writeToDisk(msg->payload,
                                                 dst_location->getStorageService()->getHostname(),
                                                 dst_location->getMountPoint());
-
+                    }
                     // Wait for the comm to finish
+//                    WRENCH_INFO("Wrote of %f of file  %s", msg->payload, file->getID().c_str());
                     msg = req->wait();
                     if (auto file_content_chunk_msg =
-                            std::dynamic_pointer_cast<StorageServiceFileContentChunkMessage>(msg)) {
+                            dynamic_cast<StorageServiceFileContentChunkMessage*>(msg.get())) {
                         done = file_content_chunk_msg->last_chunk;
                     } else {
                         throw std::runtime_error("FileTransferThread::downloadFileFromStorageService(): Received an unexpected [" +
@@ -504,9 +565,14 @@ namespace wrench {
                     }
                 }
                 // Do the I/O for the last chunk
-                S4U_Simulation::writeToDisk(msg->payload,
+                if (Simulation::isPageCachingEnabled()) {
+                    simulation->writebackWithMemoryCache(file, msg->payload, dst_location, false);
+                } else {
+                    // Write to disk
+                    simulation->writeToDisk(msg->payload,
                                             dst_location->getStorageService()->getHostname(),
                                             dst_location->getMountPoint());
+                }
             } catch (std::shared_ptr<NetworkError> &e) {
                 throw;
             }

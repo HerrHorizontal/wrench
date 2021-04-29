@@ -13,7 +13,7 @@
 #include "../include/TestWithFork.h"
 #include "../include/UniqueTmpPathPrefix.h"
 
-WRENCH_LOG_NEW_DEFAULT_CATEGORY(simulation_logging_test, "Log category for Simulation Logging Test");
+WRENCH_LOG_CATEGORY(simulation_logging_test, "Log category for Simulation Logging Test");
 
 
 class SimulationLoggingTest : public ::testing::Test {
@@ -97,7 +97,7 @@ void SimulationLoggingTest::do_logging_test() {
     auto *simulation = new wrench::Simulation();
     int argc = 1;
     auto argv = (char **) calloc(argc, sizeof(char *));
-    argv[0] = strdup("command_line_args_test");
+    argv[0] = strdup("unit_test");
     simulation->init(&argc, argv);
 
     simulation->instantiatePlatform(platform_file_path);
@@ -110,7 +110,8 @@ void SimulationLoggingTest::do_logging_test() {
     simulation->launch();
 
     delete simulation;
-    free(argv[0]);
+    for (int i=0; i < argc; i++)
+     free(argv[i]);
     free(argv);
 }
 

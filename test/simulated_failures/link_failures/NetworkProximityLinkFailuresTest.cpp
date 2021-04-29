@@ -17,7 +17,7 @@
 #include "../failure_test_util/ResourceSwitcher.h"
 #include "../failure_test_util/ResourceRandomRepeatSwitcher.h"
 
-XBT_LOG_NEW_DEFAULT_CATEGORY(network_proximity_link_failures, "Log category for NetworkProximityLinkFailuresTest");
+WRENCH_LOG_CATEGORY(network_proximity_link_failures, "Log category for NetworkProximityLinkFailuresTest");
 
 
 class NetworkProximityLinkFailuresTest : public ::testing::Test {
@@ -143,8 +143,8 @@ void NetworkProximityLinkFailuresTest::do_NetworkProximityLinkFailures_Test() {
     // Create and initialize a simulation
     auto simulation = new wrench::Simulation();
     int argc = 1;
-    char **argv = (char **) calloc(1, sizeof(char *));
-    argv[0] = strdup("one_task_test");
+    char **argv = (char **) calloc(argc, sizeof(char *));
+    argv[0] = strdup("unit_test");
 
     simulation->init(&argc, argv);
 
@@ -181,7 +181,8 @@ void NetworkProximityLinkFailuresTest::do_NetworkProximityLinkFailures_Test() {
 
                 delete simulation;
 
-                free(argv[0]);
+                for (int i=0; i < argc; i++)
+     free(argv[i]);
                 free(argv);
             }
 

@@ -27,13 +27,14 @@
 #include "wrench/services/helpers/ServiceTerminationDetector.h"
 #include "wrench/services/helpers/HostStateChangeDetector.h"
 #include <wrench/services/helpers/HostStateChangeDetectorMessage.h>
+#include <wrench/workflow/failure_causes/HostError.h>
 
 
 #include <exception>
 
 #include "wrench/util/PointerUtil.h"
 
-WRENCH_LOG_NEW_DEFAULT_CATEGORY(standard_job_executor, "Log category for Standard Job Executor");
+WRENCH_LOG_CATEGORY(wrench_core_standard_job_executor, "Log category for Standard Job Executor");
 
 namespace wrench {
 
@@ -51,10 +52,10 @@ namespace wrench {
      * @param callback_mailbox: the mailbox to which a reply will be sent
      * @param hostname: the name of the host on which this service will run (could be the first compute resources - see below)
      * @param job: the standard job to execute
-     * @param compute_resources: a non-empty map of <num_cores, memory> tuples, indexed by hostname, which represent
+     * @param compute_resources: a non-empty map of <num_cores, memory_manager_service> tuples, indexed by hostname, which represent
      *           the compute resources the job should execute on
      *              - If num_cores == ComputeService::ALL_CORES, then ALL the cores of the host are used
-     *              - If memory == ComputeService::ALL_RAM, then ALL the ram of the host is used
+     *              - If memory_manager_service == ComputeService::ALL_RAM, then ALL the ram of the host is used
      * @param scratch_space: the usable scratch storage space  (or nullptr if none)
      * @param part_of_pilot_job: true if the job executor is running within a pilot job
      * @param parent_pilot_job: the parent pilog job, if any
@@ -67,7 +68,7 @@ namespace wrench {
     StandardJobExecutor::StandardJobExecutor(Simulation *simulation,
                                              std::string callback_mailbox,
                                              std::string hostname,
-                                             StandardJob *job,
+                                             std::shared_ptr<StandardJob> job,
                                              std::map<std::string, std::tuple<unsigned long, double>> compute_resources,
                                              std::shared_ptr<StorageService> scratch_space,
                                              bool part_of_pilot_job,
@@ -107,7 +108,7 @@ namespace wrench {
             }
         }
 
-        // Check that there is at least zero byte of memory per host, but not too many bytes
+        // Check that there is at least zero byte of memory_manager_service per host, but not too many bytes
         for (auto host : compute_resources) {
             if (std::get<1>(host.second) < 0) {
                 throw std::invalid_argument(
@@ -121,7 +122,7 @@ namespace wrench {
                             S4U_Simulation::getHostMemoryCapacity(host.first)) + " bytes of RAM");
                 }
             } else {
-                // Set the memory to the maximum
+                // Set the memory_manager_service to the maximum
                 std::get<1>(host.second) = S4U_Simulation::getHostMemoryCapacity(host.first);
             }
         }
@@ -172,7 +173,7 @@ namespace wrench {
 	enough_ram = true;
         if (!enough_ram) {
             throw std::invalid_argument(
-                    "StandardJobExecutor::StandardJobExecutor(): insufficient memory resources to run the job "
+                    "StandardJobExecutor::StandardJobExecutor(): insufficient memory_manager_service resources to run the job "
                     "(max_required_ram = " + std::to_string(max_required_ram) + ")");
         }
 
@@ -296,16 +297,18 @@ namespace wrench {
             WRENCH_INFO("  %s: %ld cores", std::get<0>(h).c_str(), std::get<1>(h));
         }
 
-        // Create the host state monitor
-        std::vector<std::string> hosts_to_monitor;
-        for (auto const &h : this->compute_resources) {
-            hosts_to_monitor.push_back(h.first);
+        if (Simulation::isHostShutdownSimulationEnabled()) {
+            // Create the host state monitor
+            std::vector<std::string> hosts_to_monitor;
+            for (auto const &h : this->compute_resources) {
+                hosts_to_monitor.push_back(h.first);
+            }
+            this->host_state_monitor = std::shared_ptr<HostStateChangeDetector>(
+                    new HostStateChangeDetector(this->hostname, hosts_to_monitor, true, false, false,
+                                                this->getSharedPtr<Service>(), this->mailbox_name));
+            this->host_state_monitor->simulation = this->simulation;
+            this->host_state_monitor->start(this->host_state_monitor, true, false); // Daemonized, no auto-restart
         }
-        this->host_state_monitor = std::shared_ptr<HostStateChangeDetector>(
-                new HostStateChangeDetector(this->hostname, hosts_to_monitor, true, false, false,
-                                            this->getSharedPtr<Service>(), this->mailbox_name));
-        this->host_state_monitor->simulation = this->simulation;
-        this->host_state_monitor->start(this->host_state_monitor, true, false); // Daemonized, no auto-restart
 
         /** Create all Workunits **/
         std::set<std::shared_ptr<Workunit>> all_work_units = Workunit::createWorkunits(this->job);
@@ -353,8 +356,10 @@ namespace wrench {
             cleanUpScratch();
         }
 
-        this->host_state_monitor->kill();
-        this->host_state_monitor = nullptr; // Which will release the pointer to this service!
+        if (Simulation::isHostShutdownSimulationEnabled()) {
+            this->host_state_monitor->kill();
+            this->host_state_monitor = nullptr; // Which will release the pointer to this service!
+        }
 
         WRENCH_INFO("Standard Job Executor on host %s cleanly terminating!", S4U_Simulation::getHostName().c_str());
         return 0;
@@ -537,14 +542,6 @@ namespace wrench {
             WRENCH_INFO("Starting a work unit executor with %ld cores on host %s",
                         target_num_cores, target_host.c_str());
 
-//        std::cerr << "CREATING A WORKUNIT EXECUTOR\n";
-
-            // TODO: WAS THIS USEFUL BELOW? Henri has commented it out for now
-//        WorkflowJob* workflow_job = job;
-//        if (this->part_of_pilot_job) {
-//          workflow_job = this->parent_pilot_job;s
-//        }
-
             std::shared_ptr<WorkunitExecutor> workunit_executor = std::shared_ptr<WorkunitExecutor>(
                     new WorkunitExecutor(target_host,
                                          target_num_cores,
@@ -566,7 +563,7 @@ namespace wrench {
             } catch (std::shared_ptr<HostError> &e) {
                 this->releaseDaemonLock();
                 throw std::runtime_error(
-                        "BareMetalComputeService::dispatchReadyWorkunits(): got a host error on the target host - this shouldn't happen");
+                        "bare_metal::dispatchReadyWorkunits(): got a host error on the target host - this shouldn't happen");
             }
 
             // Start a failure detector for this workunit executor (which will send me a message in case the
@@ -634,20 +631,20 @@ namespace wrench {
 
         WRENCH_DEBUG("Got a [%s] message", message->getName().c_str());
 
-        if (auto msg = std::dynamic_pointer_cast<HostHasTurnedOnMessage>(message)) {
+        if (auto msg = dynamic_cast<HostHasTurnedOnMessage*>(message.get())) {
             // Do nothing, just wake up
             return true;
-        } else if (auto msg = std::dynamic_pointer_cast<HostHasChangedSpeedMessage>(message)) {
+        } else if (auto msg = dynamic_cast<HostHasChangedSpeedMessage*>(message.get())) {
             // Do nothing, just wake up
             return true;
-        } else if (auto msg = std::dynamic_pointer_cast<WorkunitExecutorDoneMessage>(message)) {
+        } else if (auto msg = dynamic_cast<WorkunitExecutorDoneMessage*>(message.get())) {
             processWorkunitExecutorCompletion(msg->workunit_executor, msg->workunit);
             return true;
-        } else if (auto msg = std::dynamic_pointer_cast<WorkunitExecutorFailedMessage>(message)) {
+        } else if (auto msg = dynamic_cast<WorkunitExecutorFailedMessage*>(message.get())) {
             processWorkunitExecutorFailure(msg->workunit_executor, msg->workunit, msg->cause);
             return false; // We should exit since we've killed everything
 
-        } else if (auto msg = std::dynamic_pointer_cast<ServiceHasCrashedMessage>(message)) {
+        } else if (auto msg = dynamic_cast<ServiceHasCrashedMessage*>(message.get())) {
             auto service = msg->service;
             auto workunit_executor = std::dynamic_pointer_cast<WorkunitExecutor>(service);
             if (not workunit_executor) {
@@ -762,7 +759,7 @@ namespace wrench {
                     }
                     if (!found_it) {
                         throw std::runtime_error(
-                                "BareMetalComputeService::processWorkCompletion(): couldn't find non-ready child in non-ready set!");
+                                "bare_metal::processWorkCompletion(): couldn't find non-ready child in non-ready set!");
                     }
 
                 }
@@ -978,7 +975,7 @@ namespace wrench {
             /** Perform scratch cleanup */
             for (auto f : files_stored_in_scratch) {
                 try {
-                    StorageService::deleteFile(f, FileLocation::LOCATION(this->scratch_space, job->getName()));
+                    StorageService::deleteFile(f, FileLocation::LOCATION(this->scratch_space, "/scratch/"+job->getName()));
                 } catch (WorkflowExecutionException &e) {
                     throw;
                 }
@@ -1019,7 +1016,7 @@ namespace wrench {
      * @brief Get the executor's job
      * @return a standard job
      */
-    StandardJob *StandardJobExecutor::getJob() {
+    std::shared_ptr<StandardJob> StandardJobExecutor::getJob() {
         return this->job;
     }
 

@@ -14,7 +14,7 @@
 #include "wrench/workflow/job/WorkflowJob.h"
 #include "wrench/workflow/Workflow.h"
 
-WRENCH_LOG_NEW_DEFAULT_CATEGORY(workflow_job, "Log category for WorkflowJob");
+WRENCH_LOG_CATEGORY(wrench_core_workflow_job, "Log category for WorkflowJob");
 
 
 namespace wrench {
@@ -30,40 +30,9 @@ namespace wrench {
      *
      * @param type: job type
      */
-    WorkflowJob::WorkflowJob(Type type) : type(type) {
+    WorkflowJob::WorkflowJob() {
       this->parent_compute_service = nullptr;
       this->submit_date = -1.0;
-    }
-
-
-    /**
-     * @brief Get the job type
-     *
-     * @return the type
-     */
-    WorkflowJob::Type WorkflowJob::getType() {
-      return this->type;
-    }
-
-    /**
-     * @brief Get the job type name
-     * @return the type name as a string
-     *
-     * @throw std::runtime_error
-     */
-    std::string WorkflowJob::getTypeAsString() {
-      switch (this->type) {
-        case STANDARD: {
-          return "Standard";
-        }
-        case PILOT: {
-          return "Pilot";
-        }
-        default: {
-          throw std::runtime_error("WorkflowJob::getTypeAsString(): WorkflowJob type '" +
-                                   std::to_string(this->type) + "' cannot be converted to a string");
-        }
-      }
     }
 
     /**
@@ -173,4 +142,4 @@ namespace wrench {
     unsigned long WorkflowJob::getPriority() {
       return 0;
     }
-};
+}

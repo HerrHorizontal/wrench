@@ -7,7 +7,7 @@
 #include "../../include/TestWithFork.h"
 #include "../../include/UniqueTmpPathPrefix.h"
 
-XBT_LOG_NEW_DEFAULT_CATEGORY(test_energy, "Log category for SimulationTimestampEnergyTest");
+WRENCH_LOG_CATEGORY(test_energy, "Log category for SimulationTimestampEnergyTest");
 
 
 class SimulationTimestampEnergyTest: public ::testing::Test {
@@ -101,7 +101,7 @@ void SimulationTimestampEnergyTest::do_SimulationTimestampPstateSet_test() {
     int argc = 2;
     auto argv = (char **)calloc(argc, sizeof(char *));
     argv[0] = strdup("unit_test");
-    argv[1] = strdup("--activate-energy");
+    argv[1] = strdup("--wrench-energy-simulation");
 
     EXPECT_NO_THROW(simulation->init(&argc, argv));
 
@@ -122,7 +122,7 @@ void SimulationTimestampEnergyTest::do_SimulationTimestampPstateSet_test() {
     EXPECT_NO_THROW(simulation->launch());
 
     // Check constructor for SimulationTimestampPstateSet timestamps
-    EXPECT_THROW(new wrench::SimulationTimestampPstateSet("", 0), std::invalid_argument);
+    EXPECT_THROW(simulation->getOutput().addTimestampPstateSet("", 0), std::invalid_argument);
 
     // Check that the expected SimulationTimestampPstateSet timestamps have been added to simulation output
     auto set_pstate_timestamps = simulation->getOutput().getTrace<wrench::SimulationTimestampPstateSet>();
@@ -147,8 +147,8 @@ void SimulationTimestampEnergyTest::do_SimulationTimestampPstateSet_test() {
     ASSERT_EQ("host1", ts3->getContent()->getHostname());
 
     delete simulation;
-    free(argv[0]);
-    free(argv[1]);
+    for (int i=0; i < argc; i++)
+        free(argv[i]);
     free(argv);
 }
 
@@ -195,8 +195,8 @@ void SimulationTimestampEnergyTest::do_SimulationTimestampEnergyConsumption_test
     auto simulation = new wrench::Simulation();
     int argc = 2;
     auto argv = (char **)calloc(argc, sizeof(char *));
-    argv[0] = strdup("simulation_timestamp_energy_consumption_test");
-    argv[1] = strdup("--activate-energy");
+    argv[0] = strdup("unit_test");
+    argv[1] = strdup("--wrench-energy-simulation");
 
     EXPECT_NO_THROW(simulation->init(&argc, argv));
 
@@ -217,7 +217,7 @@ void SimulationTimestampEnergyTest::do_SimulationTimestampEnergyConsumption_test
     EXPECT_NO_THROW(simulation->launch());
 
     // Check constructor for SimulationTimestampEnergyConsumption timestamp
-    EXPECT_THROW(new wrench::SimulationTimestampEnergyConsumption("", 1.0), std::invalid_argument);
+    EXPECT_THROW(simulation->getOutput().addTimestampEnergyConsumption("", 1.0), std::invalid_argument);
 
     // Check that the expected SimulationTimestampEnergyConsumption timestamps have been added to simulation output
     auto energy_consumption_timestamps = simulation->getOutput().getTrace<wrench::SimulationTimestampEnergyConsumption>();
@@ -236,8 +236,8 @@ void SimulationTimestampEnergyTest::do_SimulationTimestampEnergyConsumption_test
     ASSERT_DOUBLE_EQ(400.0, ts2->getContent()->getConsumption());
 
     delete simulation;
-    free(argv[0]);
-    free(argv[1]);
+    for (int i=0; i < argc; i++)
+        free(argv[i]);
     free(argv);
 }
 
@@ -325,8 +325,8 @@ void SimulationTimestampEnergyTest::do_EnergyMeterSingleMeasurementPeriod_test()
     auto simulation = new wrench::Simulation();
     int argc = 2;
     auto argv = (char **)calloc(argc, sizeof(char *));
-    argv[0] = strdup("energy_meter_single_measurement_period_test");
-    argv[1] = strdup("--activate-energy");
+    argv[0] = strdup("unit_test");
+    argv[1] = strdup("--wrench-energy-simulation");
 
     EXPECT_NO_THROW(simulation->init(&argc, argv));
 
@@ -417,8 +417,8 @@ void SimulationTimestampEnergyTest::do_EnergyMeterSingleMeasurementPeriod_test()
     }
 
     delete simulation;
-    free(argv[0]);
-    free(argv[1]);
+    for (int i=0; i < argc; i++)
+        free(argv[i]);
     free(argv);
 }
 
@@ -467,8 +467,8 @@ void SimulationTimestampEnergyTest::do_EnergyMeterMultipleMeasurementPeriod_test
     auto simulation = new wrench::Simulation();
     int argc = 2;
     auto argv = (char **)calloc(argc, sizeof(char *));
-    argv[0] = strdup("energy_meter_multiple_measurement_period_test");
-    argv[1] = strdup("--activate-energy");
+    argv[0] = strdup("unit_test");
+    argv[1] = strdup("--wrench-energy-simulation");
 
     EXPECT_NO_THROW(simulation->init(&argc, argv));
 
@@ -544,7 +544,7 @@ void SimulationTimestampEnergyTest::do_EnergyMeterMultipleMeasurementPeriod_test
     }
 
     delete simulation;
-    free(argv[0]);
-    free(argv[1]);
+    for (int i=0; i < argc; i++)
+        free(argv[i]);
     free(argv);
 }

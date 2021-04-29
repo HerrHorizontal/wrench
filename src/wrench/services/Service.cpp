@@ -16,8 +16,13 @@
 #include "wrench/logging/TerminalOutput.h"
 #include "wrench/exceptions/WorkflowExecutionException.h"
 #include "wrench/services/ServiceMessagePayload.h"
+#include "wrench/workflow/failure_causes/ServiceIsDown.h"
+#include "wrench/workflow/failure_causes/ServiceIsSuspended.h"
+#include "wrench/workflow/failure_causes/HostError.h"
+#include "wrench/workflow/failure_causes/NetworkError.h"
+#include "wrench/workflow/failure_causes/NotAllowed.h"
 
-WRENCH_LOG_NEW_DEFAULT_CATEGORY(service, "Log category for Service");
+WRENCH_LOG_CATEGORY(wrench_core_service, "Log category for Service");
 
 
 namespace wrench {
@@ -286,7 +291,7 @@ namespace wrench {
         }
 
         // Wait for the ack
-        std::shared_ptr<SimulationMessage> message = nullptr;
+        std::unique_ptr<SimulationMessage> message = nullptr;
 
         try {
             message = S4U_Mailbox::getMessage(ack_mailbox, this->network_timeout);
@@ -295,7 +300,7 @@ namespace wrench {
             throw WorkflowExecutionException(cause);
         }
 
-        if (auto msg = std::dynamic_pointer_cast<ServiceDaemonStoppedMessage>(message)) {
+        if (auto msg = dynamic_cast<ServiceDaemonStoppedMessage*>(message.get())) {
             this->state = Service::DOWN;
         } else {
             throw std::runtime_error("Service::stop(): Unexpected [" + message->getName() + "] message");

@@ -16,34 +16,35 @@ namespace wrench {
      * @brief Constructor
      *
      * @param job: the workflow job corresponding to the batch job
-     * @param jobid: the batch job id
+     * @param job_id: the batch job id
      * @param time_in_minutes: the requested execution time in minutes
      * @param num_nodes: the requested number of compute nodes (hosts)
      * @param cores_per_node: the requested number of cores per node
+     * @param username: the username of the user submitting the job
      * @param ending_time_stamp: the job's end date
      * @param arrival_time_stamp: the job's arrival date
      */
-    BatchJob::BatchJob(WorkflowJob *job, unsigned long jobid, unsigned long time_in_minutes, unsigned long num_nodes,
-                       unsigned long cores_per_node, double ending_time_stamp, double arrival_time_stamp) {
+    BatchJob::BatchJob(std::shared_ptr<WorkflowJob> job, unsigned long job_id, unsigned long time_in_minutes, unsigned long num_nodes,
+                       unsigned long cores_per_node, std::string username, double ending_time_stamp, double arrival_time_stamp) {
         if (job == nullptr) {
             throw std::invalid_argument(
                     "BatchJob::BatchJob(): StandardJob cannot be null"
             );
         }
         this->job = job;
-        if (jobid <= 0 || num_nodes == 0 || cores_per_node == 0) {
+        if (job_id <= 0 || num_nodes == 0 || cores_per_node == 0) {
             throw std::invalid_argument(
-                    "BatchJob::BatchJob(): either jobid (" + std::to_string(jobid) +
-                    "), time_in_minutes (" + std::to_string(time_in_minutes) +
+                    "BatchJob::BatchJob(): either jobid (" + std::to_string(job_id) +
                     "), num_nodes (" + std::to_string(num_nodes) +
                     "), cores_per_node (" + std::to_string(cores_per_node) +
                     ") is less than or equal to zero"
             );
         }
-        this->jobid = jobid;
+        this->job_id = job_id;
         this->requested_time = time_in_minutes * 60;
         this->requested_num_nodes = num_nodes;
         this->requested_cores_per_node = cores_per_node;
+        this->username = username;
         this->ending_time_stamp = ending_time_stamp;
         this->arrival_time_stamp = arrival_time_stamp;
 
@@ -56,6 +57,14 @@ namespace wrench {
      */
     unsigned long BatchJob::getRequestedCoresPerNode() {
         return this->requested_cores_per_node;
+    }
+
+    /**
+     * @brief Get the username
+     * @return a username
+     */
+    std::string BatchJob::getUsername() {
+        return this->username;
     }
 
     /**
@@ -75,15 +84,14 @@ namespace wrench {
     }
 
     /**
-     * @brief Get the memory requirement
+     * @brief Get the memory_manager_service requirement
      * @return a size in bytes
      */
     double BatchJob::getMemoryRequirement() {
-        WorkflowJob *workflow_job = this->job;
+        std::shared_ptr<WorkflowJob> workflow_job = this->job;
         double memory_requirement = 0.0;
-        if (workflow_job->getType() == WorkflowJob::STANDARD) {
-            auto standard_job = (StandardJob *) workflow_job;
-            for (auto const &t : standard_job->getTasks()) {
+        if (auto sjob = std::dynamic_pointer_cast<StandardJob>(workflow_job)) {
+            for (auto const &t : sjob->getTasks()) {
                 double ram = t->getMemoryRequirement();
                 memory_requirement = (memory_requirement < ram ? ram : memory_requirement);
             }
@@ -96,7 +104,7 @@ namespace wrench {
      * @brief Get the arrival time stamp
      * @return a date
      */
-    double BatchJob::getArrivalTimeStamp() {
+    double BatchJob::getArrivalTimestamp() {
         return this->arrival_time_stamp;
     }
 
@@ -104,7 +112,7 @@ namespace wrench {
      * @brief Get the workflow job corresponding to this batch job
      * @return a workflow job
      */
-    WorkflowJob *BatchJob::getWorkflowJob() {
+    std::shared_ptr<WorkflowJob> BatchJob::getWorkflowJob() {
         return this->job;
     }
 
@@ -113,7 +121,7 @@ namespace wrench {
      * @return a string id
      */
     unsigned long BatchJob::getJobID() {
-        return this->jobid;
+        return this->job_id;
     }
 
     /**
@@ -129,7 +137,7 @@ namespace wrench {
      * @brief Set the batch job's begin timestamp
      * @param time_stamp: a date
      */
-    void BatchJob::setBeginTimeStamp(double time_stamp) {
+    void BatchJob::setBeginTimestamp(double time_stamp) {
         this->begin_time_stamp = time_stamp;
     }
 
@@ -138,7 +146,7 @@ namespace wrench {
      * @brief Get the batch job's begin timestamp
      * @return a date
      */
-    double BatchJob::getBeginTimeStamp() {
+    double BatchJob::getBeginTimestamp() {
         return this->begin_time_stamp;
     }
 
@@ -146,7 +154,7 @@ namespace wrench {
      * @brief Get the batch job's end timestamp
      * @return a date
      */
-    double BatchJob::getEndingTimeStamp() {
+    double BatchJob::getEndingTimestamp() {
         return this->ending_time_stamp;
     }
 
@@ -154,10 +162,10 @@ namespace wrench {
      * @brief Set the batch job's end timestamp
      * @param time_stamp: a date
      */
-    void BatchJob::setEndingTimeStamp(double time_stamp) {
+    void BatchJob::setEndingTimestamp(double time_stamp) {
         if (this->ending_time_stamp > 0) {
             throw std::runtime_error(
-                    "BatchJob::setEndingTimeStamp(): Cannot set time stamp again for the same job"
+                    "BatchJob::setEndingTimestamp(): Cannot set time stamp again for the same job"
             );
         }
         this->ending_time_stamp = time_stamp;

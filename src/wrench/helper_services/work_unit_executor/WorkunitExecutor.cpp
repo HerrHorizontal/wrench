@@ -23,14 +23,20 @@
 #include <wrench/workflow/job/StandardJob.h>
 #include <wrench/simulation/SimulationTimestampTypes.h>
 #include <wrench/services/compute/workunit_executor/Workunit.h>
+#include <wrench/workflow//failure_causes/NoScratchSpace.h>
 #include "ComputeThread.h"
 #include "wrench/simulation/Simulation.h"
-
+#include <wrench/services/memory/MemoryManager.h>
 #include "wrench/logging/TerminalOutput.h"
 #include <wrench/services/compute/ComputeService.h>
+#include <wrench/workflow/failure_causes/FileNotFound.h>
+#include <wrench/workflow/failure_causes/NetworkError.h>
+#include <wrench/workflow/failure_causes/FatalFailure.h>
+#include <wrench/workflow/failure_causes/ComputeThreadHasDied.h>
+#include <wrench/services/memory/MemoryManager.h>
 
 
-WRENCH_LOG_NEW_DEFAULT_CATEGORY(workunit_executor, "Log category for Multicore Workunit Executor");
+WRENCH_LOG_CATEGORY(wrench_core_workunit_executor, "Log category for Multicore Workunit Executor");
 
 //#define S4U_KILL_JOIN_WORKS
 
@@ -56,7 +62,7 @@ namespace wrench {
             std::string callback_mailbox,
             std::shared_ptr<Workunit> workunit,
             std::shared_ptr<StorageService> scratch_space,
-            StandardJob *job,
+            std::shared_ptr<StandardJob> job,
             double thread_startup_overhead,
             bool simulate_computation_as_sleep) :
             Service(hostname, "workunit_executor", "workunit_executor") {
@@ -108,17 +114,14 @@ namespace wrench {
                 task->setInternalState(WorkflowTask::InternalState::TASK_FAILED);
                 if (not this->terminated_due_job_being_forcefully_terminated) {
                     task->setFailureDate(S4U_Simulation::getClock());
-                    this->simulation->getOutput().addTimestamp<SimulationTimestampTaskFailure>(
-                            new SimulationTimestampTaskFailure(task));
+                    this->simulation->getOutput().addTimestampTaskFailure(task);
                 } else {
                     task->setTerminationDate(S4U_Simulation::getClock());
-                    this->simulation->getOutput().addTimestamp<SimulationTimestampTaskTermination>(
-                            new SimulationTimestampTaskTermination(task));
+                    this->simulation->getOutput().addTimestampTaskTermination(task);
                 }
             }
         } else if ((this->workunit->task != nullptr) and this->task_completion_timestamp_should_be_generated){
-            this->simulation->getOutput().addTimestamp<SimulationTimestampTaskCompletion>(
-                    new SimulationTimestampTaskCompletion(this->workunit->task));
+            this->simulation->getOutput().addTimestampTaskCompletion(this->workunit->task);
         }
 
     }
@@ -132,7 +135,6 @@ namespace wrench {
     void WorkunitExecutor::kill(bool job_termination) {
 
         this->acquireDaemonLock();
-
 
         // Then kill all compute threads, if any
         WRENCH_INFO("Killing %ld compute threads", this->compute_threads.size());
@@ -248,8 +250,7 @@ namespace wrench {
                 WorkflowTask *task = this->workunit->task;
                 task->setInternalState(WorkflowTask::InternalState::TASK_FAILED);
                 task->setFailureDate(S4U_Simulation::getClock());
-                auto ts = new SimulationTimestampTaskFailure(task);
-                this->simulation->getOutput().addTimestamp<SimulationTimestampTaskFailure>(ts);
+                this->simulation->getOutput().addTimestampTaskFailure(task);
                 this->task_failure_time_stamp_has_already_been_generated = true;
             }
         }
@@ -282,6 +283,8 @@ namespace wrench {
      */
     void
     WorkunitExecutor::performWork(Workunit *work) {
+
+        double mem_req = 0;
 
         /** Perform all pre file copies operations */
         for (auto file_copy : work->pre_file_copies) {
@@ -319,13 +322,17 @@ namespace wrench {
             task->setExecutionHost(this->hostname);
             task->setNumCoresAllocated(this->num_cores);
 
-            this->simulation->getOutput().addTimestamp<SimulationTimestampTaskStart>(
-                    new SimulationTimestampTaskStart(task));
+            this->simulation->getOutput().addTimestampTaskStart(task);
+//            this->simulation->getOutput().addTimestamp<SimulationTimestampTaskStart>(
+//                    new SimulationTimestampTaskStart(task));
             this->task_start_timestamp_has_been_inserted = true;
 
 
             // Read  all input files
-            WRENCH_INFO("Reading the %ld input files for task %s", task->getInputFiles().size(), task->getID().c_str());
+            if (not task->getInputFiles().empty()) {
+                WRENCH_INFO("Reading the %ld input files for task %s",
+                            task->getInputFiles().size(), task->getID().c_str());
+            }
             try {
                 task->setReadInputStartDate(S4U_Simulation::getClock());
 //                std::map<WorkflowFile *, std::shared_ptr<FileLocation>> files_to_read;
@@ -350,23 +357,41 @@ namespace wrench {
                     WorkflowFile *f = p.first;
                     std::shared_ptr<FileLocation> l = p.second;
 
+                    if (Simulation::isPageCachingEnabled()) {
+                        mem_req += f->getSize();
+                    }
+
+                    bool isFileRead = false;
                     try{
-                        this->simulation->getOutput().addTimestamp<SimulationTimestampFileReadStart>(
-                                new SimulationTimestampFileReadStart(f, l.get(), l->getStorageService().get(), task));
-                        StorageService::readFile(f, l);
+                        this->simulation->getOutput().addTimestampFileReadStart(f, l.get(), l->getStorageService().get(), task);
+                        if (Simulation::isPageCachingEnabled() && l->getServerStorageService() != nullptr) {
+                            MemoryManager *mm = simulation->getMemoryManagerByHost(S4U_Simulation::getHostName());
+                            if (f->getSize() > mm->getTotalMemory()) {
+                                throw std::runtime_error("WorkunitExecutor::performWork(): Size of file " + f->getID() + " is larger than memory manager's cache size. This is not yet supported");
+                            }
+                            if (mm->getCachedAmount(f->getID().c_str()) < f->getSize()) {
+                                StorageService::copyFile(f,FileLocation::LOCATION(l->getServerStorageService()), l);
+                                isFileRead = true;
+                            }
+                        }
+                        if (not isFileRead) {
+                            StorageService::readFile(f, l);
+                        }
+//                        this->simulation->getOutput().addTimestampFileReadStart(f, l.get(), l->getStorageService().get(), task);
+//                        StorageService::readFile(f, l);
+
                     } catch (WorkflowExecutionException &e) {
-                        this->simulation->getOutput().addTimestamp<SimulationTimestampFileReadFailure>(
-                                new SimulationTimestampFileReadFailure(f, l.get(), l->getStorageService().get(), task));
+                        this->simulation->getOutput().addTimestampFileReadFailure(f, l.get(), l->getStorageService().get(), task);
                         throw;
                     }
-                    this->simulation->getOutput().addTimestamp<SimulationTimestampFileReadCompletion>(
-                            new SimulationTimestampFileReadCompletion(f, l.get(), l->getStorageService().get(), task));
+                    this->simulation->getOutput().addTimestampFileReadCompletion(f, l.get(), l->getStorageService().get(), task);
                 }
                 task->setReadInputEndDate(S4U_Simulation::getClock());
             } catch (WorkflowExecutionException &e) {
                 this->failure_timestamp_should_be_generated = true;
                 throw;
             }
+            WRENCH_INFO("Reading done")
 
             // Run the task's computation (which can be multicore)
             WRENCH_INFO("Executing task %s (%lf flops) on %ld cores (%s)", task->getID().c_str(), task->getFlops(),
@@ -374,8 +399,7 @@ namespace wrench {
 
             try {
                 task->setComputationStartDate(S4U_Simulation::getClock());
-                runMulticoreComputation(task->getFlops(), task->getParallelEfficiency(),
-                                        this->simulate_computation_as_sleep);
+                runMulticoreComputationForTask(task, this->simulate_computation_as_sleep);
                 task->setComputationEndDate(S4U_Simulation::getClock());
             } catch (WorkflowExecutionEvent &e) {
                 this->failure_timestamp_should_be_generated = true;
@@ -383,9 +407,11 @@ namespace wrench {
                 throw;
             }
 
-            WRENCH_INFO("Writing the %ld output files for task %s",
-                        task->getOutputFiles().size(),
-                        task->getID().c_str());
+            if (not task->getOutputFiles().empty()) {
+                WRENCH_INFO("Writing the %ld output files for task %s",
+                            task->getOutputFiles().size(),
+                            task->getID().c_str());
+            }
 
             // Write all output files
             try {
@@ -393,6 +419,13 @@ namespace wrench {
 //                std::map<WorkflowFile *, std::shared_ptr<FileLocation>> files_to_write;
                 std::vector<std::pair<WorkflowFile *, std::shared_ptr<FileLocation>>> files_to_write;
                 for (auto const &f : task->getOutputFiles()) {
+                    if (Simulation::isPageCachingEnabled()) {
+                        MemoryManager *mm = simulation->getMemoryManagerByHost(S4U_Simulation::getHostName());
+                        if (f->getSize() > mm->getTotalMemory()) {
+                            throw std::runtime_error("WorkunitExecutor::performWork(): Size of file " + f->getID() +
+                                                     " is larger than memory manager's cache size. This is not yet supported");
+                        }
+                    }
                     if (work->file_locations.find(f) != work->file_locations.end()) {
                         files_to_write.push_back(std::make_pair(f, work->file_locations[f]));
                     } else {
@@ -406,22 +439,20 @@ namespace wrench {
                     std::shared_ptr<FileLocation> l = p.second;
 
                     try{
-                        this->simulation->getOutput().addTimestamp<SimulationTimestampFileWriteStart>(
-                                new SimulationTimestampFileWriteStart(f, l.get(), l->getStorageService().get(), task));
+                        this->simulation->getOutput().addTimestampFileWriteStart(f, l.get(), l->getStorageService().get(), task);
                         StorageService::writeFile(f, l);
                     } catch (WorkflowExecutionException &e) {
-                        this->simulation->getOutput().addTimestamp<SimulationTimestampFileWriteFailure>(
-                                new SimulationTimestampFileWriteFailure(f, l.get(), l->getStorageService().get(), task));
+                        this->simulation->getOutput().addTimestampFileWriteFailure(f, l.get(), l->getStorageService().get(), task);
                         throw;
                     }
-                    this->simulation->getOutput().addTimestamp<SimulationTimestampFileWriteCompletion>(
-                            new SimulationTimestampFileWriteCompletion(f, l.get(), l->getStorageService().get(), task));
+                    this->simulation->getOutput().addTimestampFileWriteCompletion(f, l.get(), l->getStorageService().get(), task);
                 }
                 task->setWriteOutputEndDate(S4U_Simulation::getClock());
             } catch (WorkflowExecutionException &e) {
                 this->failure_timestamp_should_be_generated = true;
                 throw;
             }
+            WRENCH_INFO("Writing done")
 
             WRENCH_DEBUG("Setting the internal state of %s to TASK_COMPLETED", task->getID().c_str());
             task->setInternalState(WorkflowTask::InternalState::TASK_COMPLETED);
@@ -482,17 +513,24 @@ namespace wrench {
             }
         }
 
+        if (Simulation::isPageCachingEnabled()) {
+            MemoryManager *mem_mng = simulation->getMemoryManagerByHost(this->getHostname());
+            mem_mng->releaseMemory(mem_req);
+        }
+
     }
 
 
     /**
      * @brief Simulate the execution of a multicore computation
      * @param flops: the number of flops
-     * @param parallel_efficiency: the parallel efficiency
+     * @param multicore_performance_spec: the parallel efficiency
      */
-    void WorkunitExecutor::runMulticoreComputation(double flops, double parallel_efficiency,
-                                                   bool simulate_computation_as_sleep) {
-        double effective_flops = (flops / (this->num_cores * parallel_efficiency));
+    void WorkunitExecutor::runMulticoreComputationForTask(WorkflowTask *task,
+                                                          bool simulate_computation_as_sleep) {
+
+        std::vector<double> work_per_thread = task->getParallelModel()->getWorkPerThread(task->getFlops(), this->num_cores);
+        double max_work_per_thread = *(std::max_element(work_per_thread.begin(), work_per_thread.end()));
 
         std::string tmp_mailbox = S4U_Mailbox::generateUniqueMailboxName("workunit_executor");
 
@@ -500,11 +538,11 @@ namespace wrench {
 
             /** Simulate computation as sleep **/
 
-            // Still sleep for the thread startup overhead
+            // Sleep for the thread startup overhead
             S4U_Simulation::sleep(this->num_cores * this->thread_startup_overhead);
 
             // Then sleep for the computation duration
-            double sleep_time = (flops / (this->num_cores * parallel_efficiency)) / Simulation::getFlopRate();
+            double sleep_time = (max_work_per_thread) / Simulation::getFlopRate();
             Simulation::sleep(sleep_time);
 
         } else {
@@ -529,7 +567,7 @@ namespace wrench {
                 std::shared_ptr<ComputeThread> compute_thread;
                 try {
                     compute_thread = std::shared_ptr<ComputeThread>(
-                            new ComputeThread(S4U_Simulation::getHostName(), effective_flops, tmp_mailbox));
+                            new ComputeThread(S4U_Simulation::getHostName(), work_per_thread.at(i), tmp_mailbox));
                     compute_thread->simulation = this->simulation;
                     compute_thread->start(compute_thread, true, false); // Daemonized, no auto-restart
                 } catch (std::exception &e) {
@@ -559,6 +597,7 @@ namespace wrench {
             // Wait for all actors to complete
 #ifndef S4U_KILL_JOIN_WORKS
             for (unsigned long i = 0; i < this->compute_threads.size(); i++) {
+                WRENCH_INFO("Waiting for message from a compute threads...");
                 try {
                     S4U_Mailbox::getMessage(tmp_mailbox);
                 } catch (std::shared_ptr<NetworkError> &e) {
@@ -567,6 +606,8 @@ namespace wrench {
                     success = false;
                     continue;
                 }
+                WRENCH_INFO("Got it...");
+
             }
 #else
             for (unsigned long i=0; i < this->compute_threads.size(); i++) {
@@ -619,7 +660,7 @@ namespace wrench {
      * @brief Retrieve the job the WorkunitExecutor is working for
      * @return a job
      */
-    StandardJob *WorkunitExecutor::getJob() {
+    std::shared_ptr<StandardJob> WorkunitExecutor::getJob() {
         return this->job;
     }
 

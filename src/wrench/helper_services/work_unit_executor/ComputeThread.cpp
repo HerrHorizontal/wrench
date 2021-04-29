@@ -12,7 +12,7 @@
 #include <wrench-dev.h>
 #include "ComputeThread.h"
 
-WRENCH_LOG_NEW_DEFAULT_CATEGORY(compute_thread, "Log category for ComputeThread");
+WRENCH_LOG_CATEGORY(wrench_core_compute_thread, "Log category for ComputeThread");
 
 namespace wrench {
 
@@ -35,7 +35,10 @@ namespace wrench {
      * @return
      */
     int ComputeThread::main() {
-        WRENCH_INFO("New compute thread (%.2f flops, will report to %s)", this->flops, reply_mailbox.c_str());
+        WRENCH_INFO("New compute thread (%.2f flops) on core (%.2f flop/sec) will report to %s)",
+                    this->flops,
+                    S4U_Simulation::getFlopRate(),
+                    reply_mailbox.c_str());
         S4U_Simulation::compute(this->flops);
         try {
             S4U_Mailbox::putMessage(this->reply_mailbox, new ComputeThreadDoneMessage());

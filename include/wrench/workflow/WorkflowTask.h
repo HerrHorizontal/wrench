@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2017-2019. The WRENCH Team.
+ * Copyright (c) 2017-2020. The WRENCH Team.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -12,11 +12,16 @@
 
 #include <map>
 #include <stack>
-#include <lemon/list_graph.h>
 #include <set>
 
 #include "wrench/workflow/job/WorkflowJob.h"
 #include "wrench/workflow/WorkflowFile.h"
+#include "wrench/workflow/parallel_model/ParallelModel.h"
+#include "wrench/workflow/parallel_model/AmdahlParallelModel.h"
+#include "wrench/workflow/parallel_model/ConstantEfficiencyParallelModel.h"
+#include "wrench/workflow/parallel_model/CustomParallelModel.h"
+
+#include <boost/graph/adjacency_list.hpp>
 
 namespace wrench {
 
@@ -34,14 +39,18 @@ namespace wrench {
 
         unsigned long getMaxNumCores() const;
 
-        double getParallelEfficiency() const;
+        std::shared_ptr<ParallelModel> getParallelModel();
+
+        void setParallelModel(std::shared_ptr<ParallelModel> model);
 
         double getMemoryRequirement() const;
 
         unsigned long getNumberOfChildren() const;
+
         std::vector<WorkflowTask *> getChildren() const;
 
         unsigned long getNumberOfParents() const;
+
         std::vector<WorkflowTask *> getParents() const;
 
         void addInputFile(WorkflowFile *file);
@@ -50,29 +59,23 @@ namespace wrench {
 
         unsigned int getFailureCount();
 
+
         /***********************/
         /** \cond DEVELOPER    */
         /***********************/
 
-//        /** @brief Task types */
-//        enum TaskType {
-//            COMPUTE,
-//            AUXILIARY,
-//            TRANSFER
-//        };
-
         /** @brief Task states */
         enum State {
             /** @brief Not ready (parents have not completed) */
-                    NOT_READY,
+            NOT_READY,
             /** @brief Ready (parents have completed) */
-                    READY,
+            READY,
             /** @brief Pending (has been submitted to a compute service) */
-                    PENDING,
+            PENDING,
             /** @brief Completed (successfully completed) */
-                    COMPLETED,
+            COMPLETED,
             /** @brief Some Unknown state (should not happen) */
-                    UNKNOWN
+            UNKNOWN
         };
 
         static std::string stateToString(WorkflowTask::State state);
@@ -84,10 +87,6 @@ namespace wrench {
         std::string getClusterID() const;
 
         void setClusterID(std::string);
-
-//        void setTaskType(TaskType);
-//
-//        TaskType getTaskType() const;
 
         void setPriority(long);
 
@@ -141,9 +140,9 @@ namespace wrench {
 
         WorkflowTask::State getState() const;
 
-//        void addSrcDest(WorkflowFile *, const std::string &, const std::string &);
-//
-//        std::map<WorkflowFile *, std::pair<std::string, std::string>> getFileTransfers() const;
+        std::string getColor();
+
+        void setColor(std::string);
 
         /***********************/
         /** \endcond           */
@@ -240,9 +239,11 @@ namespace wrench {
              *
              * @param task_start: Task start time
              */
-            WorkflowTaskExecution(double task_start) : task_start(task_start) { }
+            WorkflowTaskExecution(double task_start) : task_start(task_start) {}
+
 
         };
+
 
         /***********************/
         /** \endcond           */
@@ -253,14 +254,14 @@ namespace wrench {
 
         std::string id;                    // Task ID
         std::string cluster_id;            // ID for clustered task
-//        TaskType task_type;                // Task type
+        std::string color;                 // A RGB color formatted as "#rrggbb"
         double flops;                      // Number of flops
         double average_cpu = -1;           // Average CPU utilization
         unsigned long bytes_read = -1;     // Total bytes read in KB
         unsigned long bytes_written = -1;  // Total bytes written in KB
         unsigned long min_num_cores;
         unsigned long max_num_cores;
-        double parallel_efficiency;
+        std::shared_ptr<ParallelModel> parallel_model;
         double memory_requirement;
         unsigned long priority = 0;        // Task priority
         unsigned long toplevel;            // 0 if entry task
@@ -270,30 +271,24 @@ namespace wrench {
         State upcoming_visible_state;      // A visible state that will become active once a WMS has process a previously sent workflow execution event
         InternalState internal_state;      // Not to be exposed to developer level
 
-        Workflow *workflow;                                   // Containing workflow
-        lemon::ListDigraph *DAG;                              // Containing workflow
-        lemon::ListDigraph::Node DAG_node;                    // pointer to the underlying DAG node
+        Workflow *workflow;                // Containing workflow
+
         std::map<std::string, WorkflowFile *> output_files;   // List of output files
         std::map<std::string, WorkflowFile *> input_files;    // List of input files
-//        std::map<WorkflowFile *, std::pair<std::string, std::string>> fileTransfers;  // Map of transfer files and hosts
 
         // Private constructor (called by Workflow)
         WorkflowTask(std::string id,
                      double t,
                      unsigned long min_num_cores,
                      unsigned long max_num_cores,
-                     double parallel_efficiency,
                      double memory_requirement);
 
         // Containing job
         WorkflowJob *job;
 
-        // Private helper function
-//        void addFileToMap(std::map<std::string, WorkflowFile *> &map_to_insert,
-//                          std::map<std::string, WorkflowFile *> &map_to_check,
-//                          WorkflowFile *f);
-
         std::stack<WorkflowTaskExecution> execution_history;
+
+        friend class DagOfTasks;
     };
 };
 

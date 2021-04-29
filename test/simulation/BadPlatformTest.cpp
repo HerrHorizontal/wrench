@@ -13,7 +13,7 @@
 #include "../include/TestWithFork.h"
 #include "../include/UniqueTmpPathPrefix.h"
 
-XBT_LOG_NEW_DEFAULT_CATEGORY(bad_platform_test, "Log category for BadPlatform test");
+WRENCH_LOG_CATEGORY(bad_platform_test, "Log category for BadPlatform test");
 
 
 class BadPlatformTest : public ::testing::Test {
@@ -103,7 +103,23 @@ protected:
                                 "   </zone> "
                                 "</platform>";
 
+    std::string zero_bandwidth_link = "<?xml version='1.0'?>"
+                                  "<!DOCTYPE platform SYSTEM \"http://simgrid.gforge.inria.fr/simgrid/simgrid.dtd\">"
+                                  "<platform version=\"4.1\"> "
+                                  "   <zone id=\"AS01\" routing=\"Full\"> "
+                                  "       <link id=\"link\" bandwidth=\"0Mbps\" latency=\"0us\" > "
+                                  "       </link>  "
+                                  "   </zone> "
+                                  "</platform>";
 
+    std::string zero_speed_host = "<?xml version='1.0'?>"
+                                "<!DOCTYPE platform SYSTEM \"http://simgrid.gforge.inria.fr/simgrid/simgrid.dtd\">"
+                                "<platform version=\"4.1\"> "
+                                "   <zone id=\"AS01\" routing=\"Full\"> "
+                                "       <host id=\"Host\" speed=\"0f\" core=\"2\" > "
+                                "       </host>  "
+                                "   </zone> "
+                                "</platform>";
 
 
 
@@ -124,7 +140,7 @@ void BadPlatformTest::do_badPlatformFileTest_test() {
     // Create and initialize a simulation
     auto *simulation = new wrench::Simulation();
     int argc = 1;
-    auto argv = (char **) calloc(1, sizeof(char *));
+    auto argv = (char **) calloc(argc, sizeof(char *));
     argv[0] = strdup("unit_test");
 
     ASSERT_NO_THROW(simulation->init(&argc, argv));
@@ -132,7 +148,8 @@ void BadPlatformTest::do_badPlatformFileTest_test() {
     ASSERT_THROW(simulation->instantiatePlatform("/bogus"), std::invalid_argument);
 
     delete simulation;
-    free(argv[0]);
+    for (int i=0; i < argc; i++)
+        free(argv[i]);
     free(argv);
 }
 
@@ -149,7 +166,9 @@ TEST_F(BadPlatformTest, BadPlatform) {
             this->bad_ram2_xml,
             this->bad_disk1_xml,
             this->bad_disk2_xml,
-            this->bad_disk3_xml};
+            this->bad_disk3_xml,
+            this->zero_bandwidth_link
+    };
     for (auto const &xml : bad_xmls) {
         DO_TEST_WITH_FORK_ONE_ARG(do_badPlatformTest_test, xml);
     }
@@ -160,7 +179,7 @@ void BadPlatformTest::do_badPlatformTest_test(std::string xml) {
     // Create and initialize a simulation
     auto *simulation = new wrench::Simulation();
     int argc = 1;
-    auto argv = (char **) calloc(1, sizeof(char *));
+    auto argv = (char **) calloc(argc, sizeof(char *));
     argv[0] = strdup("unit_test");
 
     ASSERT_NO_THROW(simulation->init(&argc, argv));
@@ -172,7 +191,8 @@ void BadPlatformTest::do_badPlatformTest_test(std::string xml) {
     ASSERT_THROW(simulation->instantiatePlatform(platform_file_path), std::invalid_argument);
 
     delete simulation;
-    free(argv[0]);
+    for (int i=0; i < argc; i++)
+        free(argv[i]);
     free(argv);
 }
 

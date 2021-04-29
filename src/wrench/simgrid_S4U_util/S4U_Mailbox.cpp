@@ -11,20 +11,21 @@
 #include <memory>
 #include <simgrid/s4u/Mailbox.hpp>
 #include <simgrid/s4u.hpp>
+#include <wrench/workflow/failure_causes/NetworkError.h>
 
 #ifdef MESSAGE_MANAGER
 #include <wrench/util/MessageManager.h>
 #endif
 
 #include "wrench/exceptions/WorkflowExecutionException.h"
-#include "wrench/workflow/execution_events/FailureCause.h"
+#include "wrench/workflow/failure_causes/FailureCause.h"
 
 #include "wrench/logging/TerminalOutput.h"
 #include "wrench/simgrid_S4U_util/S4U_Mailbox.h"
 #include "wrench/simgrid_S4U_util/S4U_PendingCommunication.h"
 #include "wrench/simulation/SimulationMessage.h"
 
-WRENCH_LOG_NEW_DEFAULT_CATEGORY(mailbox, "Mailbox");
+WRENCH_LOG_CATEGORY(wrench_core_mailbox, "Mailbox");
 
 
 namespace wrench {
@@ -40,7 +41,7 @@ namespace wrench {
      * @throw std::shared_ptr<NetworkError>
      *
      */
-    std::shared_ptr<SimulationMessage> S4U_Mailbox::getMessage(std::string mailbox_name) {
+    std::unique_ptr<SimulationMessage> S4U_Mailbox::getMessage(std::string mailbox_name) {
         WRENCH_DEBUG("Getting a message from mailbox_name '%s'", mailbox_name.c_str());
         auto mailbox = simgrid::s4u::Mailbox::by_name(mailbox_name);
         SimulationMessage *msg = nullptr;
@@ -56,7 +57,7 @@ namespace wrench {
 #endif
 
         WRENCH_DEBUG("Received a '%s' message from mailbox_name %s", msg->getName().c_str(), mailbox_name.c_str());
-        return std::shared_ptr<SimulationMessage>(msg);
+        return std::unique_ptr<SimulationMessage>(msg);
     }
 
     /**
@@ -68,7 +69,7 @@ namespace wrench {
      *
      * @throw std::shared_ptr<NetworkError>
      */
-    std::shared_ptr<SimulationMessage> S4U_Mailbox::getMessage(std::string mailbox_name, double timeout) {
+    std::unique_ptr<SimulationMessage> S4U_Mailbox::getMessage(std::string mailbox_name, double timeout) {
 
         if (timeout < 0) {
             return S4U_Mailbox::getMessage(mailbox_name);
@@ -96,7 +97,7 @@ namespace wrench {
 
         WRENCH_DEBUG("Received a '%s' message from mailbox_name '%s'", msg->getName().c_str(), mailbox_name.c_str());
 
-        return std::shared_ptr<SimulationMessage>(msg);
+        return std::unique_ptr<SimulationMessage>(msg);
     }
 
     /**

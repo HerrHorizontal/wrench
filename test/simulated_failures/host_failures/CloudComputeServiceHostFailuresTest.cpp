@@ -19,7 +19,7 @@
 #include "../failure_test_util/SleeperVictim.h"
 #include "../failure_test_util/ResourceRandomRepeatSwitcher.h"
 
-XBT_LOG_NEW_DEFAULT_CATEGORY(cloud_compute_service_host_failures_test, "Log category for CloudServiceHostFailuresTest");
+WRENCH_LOG_CATEGORY(cloud_compute_service_host_failures_test, "Log category for CloudServiceHostFailuresTest");
 
 
 class CloudServiceHostFailuresTest : public ::testing::Test {
@@ -50,7 +50,7 @@ protected:
         output_file = workflow->addFile("output_file", 20000.0);
 
         // Create one task
-        task = workflow->addTask("task", 3600, 1, 1, 1.0, 0);
+        task = workflow->addTask("task", 3600, 1, 1, 0);
         task->addInputFile(input_file);
         task->addOutputFile(output_file);
 
@@ -196,9 +196,11 @@ void CloudServiceHostFailuresTest::do_CloudServiceFailureOfAVMWithRunningJob_tes
 
     // Create and initialize a simulation
     auto *simulation = new wrench::Simulation();
-    int argc = 1;
-    auto argv = (char **) calloc(1, sizeof(char *));
-    argv[0] = strdup("failure_test");
+    int argc = 2;
+    auto argv = (char **) calloc(argc, sizeof(char *));
+    argv[0] = strdup("unit_test");
+    argv[1] = strdup("--wrench-host-shutdown-simulation");
+
 
 
     simulation->init(&argc, argv);
@@ -236,7 +238,8 @@ void CloudServiceHostFailuresTest::do_CloudServiceFailureOfAVMWithRunningJob_tes
     ASSERT_NO_THROW(simulation->launch());
 
     delete simulation;
-    free(argv[0]);
+    for (int i=0; i < argc; i++)
+     free(argv[i]);
     free(argv);
 }
 
@@ -351,10 +354,10 @@ void CloudServiceHostFailuresTest::do_CloudServiceFailureOfAVMWithRunningJobFoll
 
     // Create and initialize a simulation
     auto *simulation = new wrench::Simulation();
-    int argc = 1;
-    auto argv = (char **) calloc(1, sizeof(char *));
-    argv[0] = strdup("failure_test");
-
+    int argc = 2;
+    auto argv = (char **) calloc(argc, sizeof(char *));
+    argv[0] = strdup("unit_test");
+    argv[1] = strdup("--wrench-host-shutdown-simulation");
 
     simulation->init(&argc, argv);
 
@@ -391,7 +394,8 @@ void CloudServiceHostFailuresTest::do_CloudServiceFailureOfAVMWithRunningJobFoll
     ASSERT_NO_THROW(simulation->launch());
 
     delete simulation;
-    free(argv[0]);
+    for (int i=0; i < argc; i++)
+     free(argv[i]);
     free(argv);
 }
 
@@ -448,7 +452,7 @@ private:
             switch2->start(switch1, true, false); // Daemonized, no auto-restart
 
             // Add a task to the workflow
-            auto task = this->test->workflow->addTask("task_" + std::to_string(trial), 50, 1, 1, 1.0, 0);
+            auto task = this->test->workflow->addTask("task_" + std::to_string(trial), 50, 1, 1, 0);
             auto output_file = this->test->workflow->addFile("output_file_" + std::to_string(trial), 2000);
 
             task->addInputFile(this->test->input_file);
@@ -513,10 +517,10 @@ void CloudServiceHostFailuresTest::do_CloudServiceRandomFailures_test() {
 
     // Create and initialize a simulation
     auto *simulation = new wrench::Simulation();
-    int argc = 1;
-    auto argv = (char **) calloc(1, sizeof(char *));
-    argv[0] = strdup("failure_test");
-
+    int argc = 2;
+    auto argv = (char **) calloc(argc, sizeof(char *));
+    argv[0] = strdup("unit_test");
+    argv[1] = strdup("--wrench-host-shutdown-simulation");
 
     simulation->init(&argc, argv);
 
@@ -554,7 +558,8 @@ void CloudServiceHostFailuresTest::do_CloudServiceRandomFailures_test() {
     ASSERT_NO_THROW(simulation->launch());
 
     delete simulation;
-    free(argv[0]);
+    for (int i=0; i < argc; i++)
+     free(argv[i]);
     free(argv);
 }
 

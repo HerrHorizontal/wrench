@@ -16,8 +16,9 @@
 #include "wrench/simulation/Simulation.h"
 #include "wrench/services/compute/ComputeServiceMessage.h"
 #include "wrench/simgrid_S4U_util/S4U_Mailbox.h"
+#include "wrench/workflow/failure_causes/NetworkError.h"
 
-WRENCH_LOG_NEW_DEFAULT_CATEGORY(compute_service, "Log category for Compute Service");
+WRENCH_LOG_CATEGORY(wrench_core_compute_service, "Log category for Compute Service");
 
 namespace wrench {
 
@@ -37,22 +38,23 @@ namespace wrench {
      * @brief Submit a job to the compute service
      * @param job: the job
      * @param service_specific_args: arguments specific to compute services when needed:
-     *      - to a BareMetalComputeService: {}
+     *      - to a bare_metal: {}
      *          - If no entry is provided for a taskID, the service will pick on which host and with how many cores to run the task
      *          - If a number of cores is provided (e.g., {"task1", "12"}), the service will pick the host on which to run the task
      *          - If a hostname and a number of cores is provided (e.g., {"task1", "host1:12"}, the service will run the task on that host
      *            with the specified number of cores
-     *      - to a BatchComputeService: {"-t":"<int>","-N":"<int>","-c":"<int>"} (SLURM-like)
+     *      - to a BatchComputeService: {"-t":"<int>","-N":"<int>","-c":"<int>"[,{"-u":"<string>"}]} (SLURM-like)
      *         - "-t": number of requested job duration in minutes
      *         - "-N": number of requested compute hosts
      *         - "-c": number of requested cores per compute host
+     *         - "-u": username (optional)
      *      - to a CloudComputeService: {}
      *
      * @throw WorkflowExecutionException
      * @throw std::invalid_argument
      * @throw std::runtime_error
      */
-    void ComputeService::submitJob(WorkflowJob *job, std::map<std::string, std::string> service_specific_args) {
+    void ComputeService::submitJob(std::shared_ptr<WorkflowJob> job, const std::map<std::string, std::string> &service_specific_args) {
 
         if (job == nullptr) {
             throw std::invalid_argument("ComputeService::submitJob(): invalid argument");
@@ -61,15 +63,10 @@ namespace wrench {
         assertServiceIsUp();
 
         try {
-            switch (job->getType()) {
-                case WorkflowJob::STANDARD: {
-                    this->submitStandardJob((StandardJob *) job, service_specific_args);
-                    break;
-                }
-                case WorkflowJob::PILOT: {
-                    this->submitPilotJob((PilotJob *) job, service_specific_args);
-                    break;
-                }
+            if (auto sjob = std::dynamic_pointer_cast<StandardJob>(job)) {
+                this->submitStandardJob(sjob, service_specific_args);
+            } else if (auto pjob = std::dynamic_pointer_cast<PilotJob>(job)) {
+                this->submitPilotJob(pjob, service_specific_args);
             }
         } catch (WorkflowExecutionException &e) {
             throw;
@@ -85,7 +82,7 @@ namespace wrench {
      * @throw WorkflowExecutionException
      * @throw std::runtime_error
      */
-    void ComputeService::terminateJob(WorkflowJob *job) {
+    void ComputeService::terminateJob(std::shared_ptr<WorkflowJob> job) {
 
         if (job == nullptr) {
             throw std::invalid_argument("ComputeService::terminateJob(): invalid argument");
@@ -94,15 +91,10 @@ namespace wrench {
         assertServiceIsUp();
 
         try {
-            switch (job->getType()) {
-                case WorkflowJob::STANDARD: {
-                    this->terminateStandardJob((StandardJob *) job);
-                    break;
-                }
-                case WorkflowJob::PILOT: {
-                    this->terminatePilotJob((PilotJob *) job);
-                    break;
-                }
+            if (auto sjob = std::dynamic_pointer_cast<StandardJob>(job)) {
+                this->terminateStandardJob(sjob);
+            } else if (auto pjob = std::dynamic_pointer_cast<PilotJob>(job)) {
+                this->terminatePilotJob(pjob);
             }
         } catch (WorkflowExecutionException &e) {
             throw;
@@ -425,19 +417,19 @@ namespace wrench {
         }
 
         // Get the reply
-        std::shared_ptr<SimulationMessage> message = nullptr;
+        std::unique_ptr<SimulationMessage> message = nullptr;
         try {
             message = S4U_Mailbox::getMessage(answer_mailbox, this->network_timeout);
         } catch (std::shared_ptr<NetworkError> &cause) {
             throw WorkflowExecutionException(cause);
         }
 
-        if (auto msg = std::dynamic_pointer_cast<ComputeServiceResourceInformationAnswerMessage>(message)) {
+        if (auto msg = dynamic_cast<ComputeServiceResourceInformationAnswerMessage*>(message.get())) {
             return msg->info;
 
         } else {
             throw std::runtime_error(
-                    "BareMetalComputeService::getServiceResourceInformation(): unexpected [" + msg->getName() +
+                    "bare_metal::getServiceResourceInformation(): unexpected [" + msg->getName() +
                     "] message");
         }
     }

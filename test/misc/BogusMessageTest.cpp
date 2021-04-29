@@ -16,7 +16,7 @@
 #include "../include/TestWithFork.h"
 #include "../include/UniqueTmpPathPrefix.h"
 
-XBT_LOG_NEW_DEFAULT_CATEGORY(bogus_message_test, "Log category for BogusMessageTest");
+WRENCH_LOG_CATEGORY(bogus_message_test, "Log category for BogusMessageTest");
 
 
 class BogusMessageTest : public ::testing::Test {
@@ -174,9 +174,9 @@ private:
 
 /*************************************************************
  ** WARNING: THESE TESTS ARE A NICE THOUGHT, AND THEY WORK
- ** BUT ALTHOUGH THE "UNEXPECTED MESSAGE" EXECPTIONS ARE THROWN
+ ** BUT ALTHOUGH THE "UNEXPECTED MESSAGE" EXCEPTIONS ARE THROWN
  ** THE LINES OF CODE THAT THROW ARE NOT MARKED AS COVERED
- ** BY COVERALLS...
+ ** BY COVERALLS/CODECOV...
  *************************************************************/
 
 TEST_F(BogusMessageTest, FileRegistryService) {
@@ -201,8 +201,8 @@ void BogusMessageTest::do_BogusMessage_Test(std::string service_type) {
     // Create and initialize a simulation
     auto simulation = new wrench::Simulation();
     int argc = 1;
-    char **argv = (char **) calloc(1, sizeof(char *));
-    argv[0] = strdup("file_registry_test");
+    char **argv = (char **) calloc(argc, sizeof(char *));
+    argv[0] = strdup("unit_test");
 
     simulation->init(&argc, argv);
 
@@ -242,6 +242,7 @@ void BogusMessageTest::do_BogusMessage_Test(std::string service_type) {
 
     delete simulation;
 
-    free(argv[0]);
+    for (int i=0; i < argc; i++)
+        free(argv[i]);
     free(argv);
 }

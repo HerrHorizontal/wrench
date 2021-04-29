@@ -13,9 +13,34 @@
 #include <nlohmann/json.hpp>
 #include "wrench/util/TraceFileLoader.h"
 
-WRENCH_LOG_NEW_DEFAULT_CATEGORY(trace_file_loader, "Log category for Trace File Loader");
+WRENCH_LOG_CATEGORY(wrench_core_trace_file_loader, "Log category for Trace File Loader");
+
 
 namespace wrench {
+
+    /**
+     * @brief A method to generate a random username, so that generated workload
+     * traces look more realistic
+     *
+     * @param userid: numerical userid
+     * @return a generated alpha userid
+     */
+    std::string generateRandomUsername(unsigned long userid) {
+        //Type of random number distribution
+        const char charset[] =
+                "aabccdeeefghijklmnooopqrstttuuvwxyzz";
+        std::uniform_int_distribution<int> dist(0, sizeof(charset)-2);
+        //Mersenne Twister: Good quality random number generator
+        std::mt19937 rng;
+        rng.seed(userid);  // Consistent for the same userid
+        std::string username = "";
+        int username_length = 3 + dist(rng) % 5;
+        while(username_length--) {
+            username += charset[dist(rng)];
+        }
+        return username;
+    }
+
 
     /**
     * @brief Load the workflow trace file
@@ -31,10 +56,11 @@ namespace wrench {
     *              - requested time,
     *              - requested ram
     *              - requested number of nodes
+    *              - username
     *
     * @throw std::invalid_argument
     */
-    std::vector<std::tuple<std::string, double, double, double, double, unsigned int>>
+    std::vector<std::tuple<std::string, double, double, double, double, unsigned int, std::string>>
     TraceFileLoader::loadFromTraceFile(std::string filename, bool ignore_invalid_jobs, double desired_submit_time_of_first_job) {
 
         std::istringstream ss(filename);
@@ -74,13 +100,14 @@ namespace wrench {
     *              - requested time,
     *              - requested ram
     *              - requested number of nodes
+    *              - username
     *
     * @throw std::invalid_argument
     */
-    std::vector<std::tuple<std::string, double, double, double, double, unsigned int>>
+    std::vector<std::tuple<std::string, double, double, double, double, unsigned int, std::string>>
     TraceFileLoader::loadFromTraceFileSWF(std::string filename, bool ignore_invalid_jobs, double desired_submit_time_of_first_job) {
 
-        std::vector<std::tuple<std::string, double, double, double, double, unsigned int>> trace_file_jobs = {};
+        std::vector<std::tuple<std::string, double, double, double, double, unsigned int, std::string>> trace_file_jobs = {};
 
         std::ifstream infile(filename);
         if (not infile.is_open()) {
@@ -104,6 +131,8 @@ namespace wrench {
                 double sub_time = -1;
                 int requested_num_nodes = -1;
                 int num_nodes = -1;
+                unsigned long userid = 0;
+                std::string username;
 
                 try {
                     if (tokens.size() < 10) {
@@ -171,11 +200,11 @@ namespace wrench {
                                             "' in batch workload trace file");
                                 }
                                 break;
-                            case 9: // Requested memory
+                            case 9: // Requested memory_manager_service
                                 // In KiB
                                 if (sscanf(item.c_str(), "%lf", &requested_ram) != 1) {
                                     throw std::invalid_argument(
-                                            "TraceFileLoader::loadFromTraceFileSWF(): Invalid requested memory '" +
+                                            "TraceFileLoader::loadFromTraceFileSWF(): Invalid requested memory_manager_service '" +
                                             item +
                                             "' in batch workload trace file");
                                 }
@@ -184,6 +213,12 @@ namespace wrench {
                             case 10: // Status
                                 break;
                             case 11: // User ID
+                                if (sscanf(item.c_str(), "%lu", &userid) != 1) {
+                                    throw std::invalid_argument(
+                                            "TraceFileLoader::loadFromTraceFileSWF(): Invalid userid '" +
+                                            item +
+                                            "' in batch workload trace file");
+                                }
                                 break;
                             case 12: // Group ID
                                 break;
@@ -237,6 +272,11 @@ namespace wrench {
                         throw std::invalid_argument(
                                 "TraceFileLoader::loadFromTraceFileSWF(): invalid job with negative (requested) number of node in batch workload trace file");
                     }
+                    if (userid == 0) {
+                        username = "user";
+                    } else {
+                        username = generateRandomUsername(userid);
+                    }
                 } catch (std::invalid_argument &e) {
                     if (ignore_invalid_jobs) {
                         WRENCH_WARN("%s (in batch workload file %s) IGNORING", e.what(), filename.c_str());
@@ -247,10 +287,10 @@ namespace wrench {
                 }
 
                 // Add the job to the list
-                std::tuple<std::string, double, double, double, double, unsigned int> job =
-                        std::tuple<std::string, double, double, double, double, unsigned int>(
-                                id, sub_time, time, requested_time, requested_ram,
-                                (unsigned int) requested_num_nodes);
+                std::tuple<std::string, double, double, double, double, unsigned int, std::string> job =
+                        std::tuple<std::string, double, double, double, double, unsigned int, std::string>(
+                                username, sub_time, time, requested_time, requested_ram,
+                                (unsigned int) requested_num_nodes, username);
                 trace_file_jobs.push_back(job);
             }
         }
@@ -271,13 +311,14 @@ namespace wrench {
     *              - requested time,
     *              - requested ram
     *              - requested number of nodes
+    *              - username
     *
     * @throw std::invalid_argument
     */
-    std::vector<std::tuple<std::string, double, double, double, double, unsigned int>>
+    std::vector<std::tuple<std::string, double, double, double, double, unsigned int, std::string>>
     TraceFileLoader::loadFromTraceFileJSON(std::string filename, bool ignore_invalid_jobs, double desired_submit_time_of_first_job) {
 
-        std::vector<std::tuple<std::string, double, double, double, double, unsigned int>> trace_file_jobs = {};
+        std::vector<std::tuple<std::string, double, double, double, double, unsigned int, std::string>> trace_file_jobs = {};
 
         std::ifstream file;
         nlohmann::json j;
@@ -362,9 +403,9 @@ namespace wrench {
             }
 
 //      // Add the job to the list
-            std::tuple<std::string, double, double, double, double, unsigned int> job =
-                    std::tuple<std::string, double, double, double, double, unsigned int>(
-                            std::to_string(id), subtime, walltime, requested_time, 0.0, (unsigned int) res);
+            std::tuple<std::string, double, double, double, double, unsigned int, std::string> job =
+                    std::tuple<std::string, double, double, double, double, unsigned int, std::string>(
+                            std::to_string(id), subtime, walltime, requested_time, 0.0, (unsigned int) res, "user");
             trace_file_jobs.push_back(job);
         }
 

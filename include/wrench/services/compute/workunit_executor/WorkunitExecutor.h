@@ -48,14 +48,14 @@ namespace wrench {
                      std::string callback_mailbox,
                      std::shared_ptr<Workunit> workunit,
                      std::shared_ptr<StorageService> scratch_space,
-                     StandardJob* job,
+                     std::shared_ptr<StandardJob>  job,
                      double thread_startup_overhead,
                      bool simulate_computation_as_sleep);
 
         void kill(bool job_termination);
 
         unsigned long getNumCores();
-        StandardJob *getJob();
+        std::shared_ptr<StandardJob> getJob();
         double getMemoryUtilization();
         std::set<WorkflowFile*> getFilesStoredInScratch();
 
@@ -76,7 +76,7 @@ namespace wrench {
 
         void performWork(Workunit *work);
 
-        void runMulticoreComputation(double flops, double parallel_efficiency, bool simulate_computation_as_sleep);
+        void runMulticoreComputationForTask(WorkflowTask *task, bool simulate_computation_as_sleep);
 
         std::string callback_mailbox;
         unsigned long num_cores;
@@ -90,7 +90,7 @@ namespace wrench {
         std::vector<std::shared_ptr<ComputeThread>> compute_threads;
 
         // a reference to the job it is a part of (currently required for creating the /tmp directory in scratch space)
-        StandardJob* job;
+        std::shared_ptr<StandardJob> job;
 
     };
 

@@ -20,7 +20,7 @@
 #include "../include/TestWithFork.h"
 #include "../include/UniqueTmpPathPrefix.h"
 
-XBT_LOG_NEW_DEFAULT_CATEGORY(job_manager_test, "Log category for JobManagerTest");
+WRENCH_LOG_CATEGORY(job_manager_test, "Log category for JobManagerTest");
 
 
 class JobManagerTest : public ::testing::Test {
@@ -156,7 +156,7 @@ void JobManagerTest::do_JobManagerConstructorTest_test() {
     // Create and initialize a simulation
     simulation = new wrench::Simulation();
     int argc = 1;
-    char **argv = (char **) calloc(1, sizeof(char *));
+    char **argv = (char **) calloc(argc, sizeof(char *));
     argv[0] = strdup("unit_test");
 
     simulation->init(&argc, argv);
@@ -179,7 +179,8 @@ void JobManagerTest::do_JobManagerConstructorTest_test() {
 
     delete simulation;
 
-    free(argv[0]);
+    for (int i=0; i < argc; i++)
+        free(argv[i]);
     free(argv);
 }
 
@@ -232,8 +233,8 @@ private:
         }
 
 
-        wrench::WorkflowTask *t1 = this->getWorkflow()->addTask("t1", 1.0, 1, 1, 1.0, 0.0);
-        wrench::WorkflowTask *t2 = this->getWorkflow()->addTask("t2", 1.0, 1, 1, 1.0, 0.0);
+        wrench::WorkflowTask *t1 = this->getWorkflow()->addTask("t1", 1.0, 1, 1, 0.0);
+        wrench::WorkflowTask *t2 = this->getWorkflow()->addTask("t2", 1.0, 1, 1, 0.0);
         wrench::WorkflowFile *f = this->getWorkflow()->addFile("f", 100);
         t1->addOutputFile(f);
         t2->addInputFile(f);
@@ -333,7 +334,7 @@ void JobManagerTest::do_JobManagerCreateJobTest_test() {
     // Create and initialize a simulation
     simulation = new wrench::Simulation();
     int argc = 1;
-    char **argv = (char **) calloc(1, sizeof(char *));
+    char **argv = (char **) calloc(argc, sizeof(char *));
     argv[0] = strdup("unit_test");
 
     simulation->init(&argc, argv);
@@ -356,7 +357,8 @@ void JobManagerTest::do_JobManagerCreateJobTest_test() {
 
     delete simulation;
 
-    free(argv[0]);
+    for (int i=0; i < argc; i++)
+        free(argv[i]);
     free(argv);
 }
 
@@ -392,7 +394,7 @@ private:
         }
 
         try {
-            job_manager->submitJob((wrench::WorkflowJob *) (1234), nullptr, {});
+            job_manager->submitJob(std::shared_ptr<wrench::WorkflowJob>((wrench::WorkflowJob *) (1234), [](void *ptr){}), nullptr, {});
             throw std::runtime_error("Should not be able to submit a job with a nullptr compute service");
         } catch (std::invalid_argument &e) {
         }
@@ -400,12 +402,6 @@ private:
         try {
             job_manager->terminateJob(nullptr);
             throw std::runtime_error("Should not be able to terminate a nullptr job");
-        } catch (std::invalid_argument &e) {
-        }
-
-        try {
-            job_manager->forgetJob(nullptr);
-            throw std::runtime_error("Should not be able to forget a nullptr job");
         } catch (std::invalid_argument &e) {
         }
 
@@ -422,7 +418,7 @@ void JobManagerTest::do_JobManagerSubmitJobTest_test() {
     // Create and initialize a simulation
     simulation = new wrench::Simulation();
     int argc = 1;
-    char **argv = (char **) calloc(1, sizeof(char *));
+    char **argv = (char **) calloc(argc, sizeof(char *));
     argv[0] = strdup("unit_test");
 
     simulation->init(&argc, argv);
@@ -446,7 +442,8 @@ void JobManagerTest::do_JobManagerSubmitJobTest_test() {
 
     delete simulation;
 
-    free(argv[0]);
+    for (int i=0; i < argc; i++)
+        free(argv[i]);
     free(argv);
 }
 
@@ -488,7 +485,7 @@ private:
         }
 
         // Create a standard job
-        wrench::StandardJob *job = job_manager->createStandardJob(this->getWorkflow()->getTasks(), {});
+        auto job = job_manager->createStandardJob(this->getWorkflow()->getTasks(), {});
 
         // Try to submit a standard job to the wrong service
         try {
@@ -555,7 +552,7 @@ void JobManagerTest::do_JobManagerResubmitJobTest_test() {
     // Create and initialize a simulation
     simulation = new wrench::Simulation();
     int argc = 1;
-    char **argv = (char **) calloc(1, sizeof(char *));
+    char **argv = (char **) calloc(argc, sizeof(char *));
     argv[0] = strdup("unit_test");
 
     simulation->init(&argc, argv);
@@ -586,8 +583,8 @@ void JobManagerTest::do_JobManagerResubmitJobTest_test() {
                     this, "Host1", {cs1, cs2})));
 
     // Add tasks to the workflow
-    wrench::WorkflowTask *task1 = workflow->addTask("task1", 10.0, 10, 10, 1.0, 0.0);
-    wrench::WorkflowTask *task2 = workflow->addTask("task2", 10.0, 10, 10, 1.0, 0.0);
+    wrench::WorkflowTask *task1 = workflow->addTask("task1", 10.0, 10, 10, 0.0);
+    wrench::WorkflowTask *task2 = workflow->addTask("task2", 10.0, 10, 10, 0.0);
     workflow->addControlDependency(task1, task2);
 
     ASSERT_NO_THROW(wms->addWorkflow(workflow.get()));
@@ -597,7 +594,8 @@ void JobManagerTest::do_JobManagerResubmitJobTest_test() {
 
     delete simulation;
 
-    free(argv[0]);
+    for (int i=0; i < argc; i++)
+        free(argv[i]);
     free(argv);
 }
 
@@ -632,10 +630,10 @@ private:
         auto cs = *(this->getAvailableComputeServices<wrench::ComputeService>().begin());
 
         // Add tasks to the workflow
-        wrench::WorkflowTask *t1 = this->getWorkflow()->addTask("task1", 600, 10, 10, 1.0, 80);
-        wrench::WorkflowTask *t2 = this->getWorkflow()->addTask("task2", 600, 9, 10, 1.0, 80);
-        wrench::WorkflowTask *t3 = this->getWorkflow()->addTask("task3", 600, 8, 10, 1.0, 0);
-        wrench::WorkflowTask *t4 = this->getWorkflow()->addTask("task4", 600, 10, 10, 1.0, 0);
+        wrench::WorkflowTask *t1 = this->getWorkflow()->addTask("task1", 600, 10, 10, 80);
+        wrench::WorkflowTask *t2 = this->getWorkflow()->addTask("task2", 600, 9, 10, 80);
+        wrench::WorkflowTask *t3 = this->getWorkflow()->addTask("task3", 600, 8, 10, 0);
+        wrench::WorkflowTask *t4 = this->getWorkflow()->addTask("task4", 600, 10, 10, 0);
 
         /* t1 and t2 can't run at the same time in this example, due to RAM */
 
@@ -649,7 +647,7 @@ private:
         t3->setPriority(42);
 
         // Create a standard job
-        wrench::StandardJob *job = job_manager->createStandardJob(this->getWorkflow()->getTasks(), {});
+        auto job = job_manager->createStandardJob(this->getWorkflow()->getTasks(), {});
         job->getMinimumRequiredNumCores(); // coverage
         job->getPriority(); // coverage
 
@@ -707,7 +705,7 @@ void JobManagerTest::do_JobManagerTerminateJobTest_test() {
     // Create and initialize a simulation
     simulation = new wrench::Simulation();
     int argc = 1;
-    char **argv = (char **) calloc(1, sizeof(char *));
+    char **argv = (char **) calloc(argc, sizeof(char *));
     argv[0] = strdup("unit_test");
 
     simulation->init(&argc, argv);
@@ -735,6 +733,7 @@ void JobManagerTest::do_JobManagerTerminateJobTest_test() {
 
     delete simulation;
 
-    free(argv[0]);
+    for (int i=0; i < argc; i++)
+     free(argv[i]);
     free(argv);
 }

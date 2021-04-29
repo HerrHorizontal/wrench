@@ -16,7 +16,7 @@
 #include "../../include/TestWithFork.h"
 #include "../../include/UniqueTmpPathPrefix.h"
 
-XBT_LOG_NEW_DEFAULT_CATEGORY(compute_thread_link_failures_test, "Log category for link failure with ComputeThread");
+WRENCH_LOG_CATEGORY(compute_thread_link_failures_test, "Log category for link failure with ComputeThread");
 
 
 class ComputeThreadLinkFailuresTest : public ::testing::Test {
@@ -135,7 +135,7 @@ void ComputeThreadLinkFailuresTest::do_LinkFailure_test() {
     // Create and initialize a simulation
     auto simulation = new wrench::Simulation();
     int argc = 1;
-    char **argv = (char **) calloc(1, sizeof(char *));
+    char **argv = (char **) calloc(argc, sizeof(char *));
     argv[0] = strdup("unit_test");
 
     simulation->init(&argc, argv);
@@ -156,7 +156,8 @@ void ComputeThreadLinkFailuresTest::do_LinkFailure_test() {
 
     delete simulation;
 
-    free(argv[0]);
+    for (int i=0; i < argc; i++)
+        free(argv[i]);
     free(argv);
 }
 

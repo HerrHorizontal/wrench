@@ -1,47 +1,71 @@
 const graphInfoArray = [
     {
-        "title": "Summary of Simulation Metrics",
+        "title": "Simulation Metrics",
         "containerId": "overall-metrics-table-container",
-        "arrowId": "overall-metrics-arrow",
-        "html": workflowSummaryHtml
+        "menuHtml": false,
+        "html": workflowSummaryHtml,
+        "icon": "chart pie"
     },
     {
-        "title": "Simulation Graph",
+        "title": "Gantt Chart",
         "containerId": "overall-graph-container",
-        "arrowId": "simulation-graph-arrow",
-        "html": simulationGraphHtml
+        "menuHtml": simulationGraphMenuHtml,
+        "html": simulationGraphHtml,
+        "icon": "sitemap"
     },
     {
         "title": "Simulation Details",
         "containerId": "task-details-table-container",
-        "arrowId": "simulation-details-arrow",
-        "html": simulationDetailsHtml
+        "menuHtml": false,
+        "html": simulationDetailsHtml,
+        "icon": "table"
     },
     {
-        "title": "Energy Graphs",
+        "title": "Host Utilization",
+        "containerId": "host-utilization-graph-container",
+        "menuHtml": false,
+        "html": hostUtilizationHtml,
+        "icon": "chart bar"
+    },
+    {
+        "title": "Network Bandwidth Usage",
+        "containerId": "network-graph-container",
+        "menuHtml": networkBandwidthMenuHtml,
+        "html": networkBandwidthHtml,
+        "icon": "tachometer alternate"
+    },
+    {
+        "title": "Energy Consumption",
         "containerId": "energy-graph",
-        "arrowId": "energy-graph-arrow",
-        "html": energyGraphsHtml
-    }, 
+        "menuHtml": false,
+        "html": energyGraphsHtml,
+        "icon": "lightbulb"
+    },
     {
         "title": "3D Visualization",
         "containerId": "three-d-graph-container",
-        "arrowId": "three-d-graph-arrow",
-        "html": threedVisualizationHtml
+        "menuHtml": false,
+        "html": threedVisualizationHtml,
+        "icon": "cubes"
     },
     {
-        "title": "Host Utilization Graph",
-        "containerId": "host-utilization-graph-container",
-        "arrowId": "host-utilization-arrow",
-        "html": hostUtilizationHtml
+        "title": "Disk I/O Operations",
+        "containerId": "disk-operations-container",
+        "html": diskOperationsHtml,
+        "icon": ""
     }
 ]
 
 function render() {
-    const template = document.getElementById('graph-template').innerHTML
-    const renderGraphs = Handlebars.compile(template)
-    document.getElementById('main-body').innerHTML = renderGraphs({ graphInfo: graphInfoArray })
-    
+    const template = document.getElementById('graph-template').innerHTML;
+    const templateMenu = document.getElementById('graph-template-menu').innerHTML;
+    const renderGraphs = Handlebars.compile(template);
+    const renderGraphsMenu = Handlebars.compile(templateMenu);
+    document.getElementById('main-body').innerHTML = renderGraphs({graphInfo: graphInfoArray});
+    document.getElementById('main-sidebar').innerHTML = renderGraphsMenu({graphInfo: graphInfoArray});
 }
 
-render()
+render();
+
+$('.ui.dropdown')
+    .dropdown();

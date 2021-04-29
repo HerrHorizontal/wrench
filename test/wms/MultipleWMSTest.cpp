@@ -78,8 +78,8 @@ protected:
         output_file2 = workflow->addFile("output_file2", 10.0);
 
         // Create the tasks
-        task1 = workflow->addTask("task_1_10s_1core", 10.0, 1, 1, 1.0, 0);
-        task2 = workflow->addTask("task_2_10s_1core", 10.0, 1, 1, 1.0, 0);
+        task1 = workflow->addTask("task_1_10s_1core", 10.0, 1, 1, 0);
+        task2 = workflow->addTask("task_2_10s_1core", 10.0, 1, 1, 0);
 
         // Add file-task dependencies
         task1->addInputFile(input_file);
@@ -132,7 +132,7 @@ private:
         auto cs = *this->getAvailableComputeServices<wrench::CloudComputeService>().begin();
 
         std::vector<std::tuple<wrench::WorkflowFile *, std::shared_ptr<wrench::FileLocation>, std::shared_ptr<wrench::FileLocation>>> pre_copies = {};
-        for (auto it : this->getWorkflow()->getInputFiles()) {
+        for (auto it : this->getWorkflow()->getInputFileMap()) {
             std::tuple<wrench::WorkflowFile *, std::shared_ptr<wrench::FileLocation>, std::shared_ptr<wrench::FileLocation>> each_copy =
                     std::make_tuple(it.second,
                                     wrench::FileLocation::LOCATION(this->test->storage_service),
@@ -179,7 +179,7 @@ void MultipleWMSTest::do_deferredWMSStartOneWMS_test() {
     // Create and initialize a simulation
     auto simulation = new wrench::Simulation();
     int argc = 1;
-    auto argv = (char **) calloc(1, sizeof(char *));
+    auto argv = (char **) calloc(argc, sizeof(char *));
     argv[0] = strdup("unit_test");
 
     ASSERT_NO_THROW(simulation->init(&argc, argv));
@@ -214,7 +214,7 @@ void MultipleWMSTest::do_deferredWMSStartOneWMS_test() {
 
     // Staging the input_file on the storage service
     for (auto const &f : workflow->getInputFiles()) {
-        ASSERT_NO_THROW(simulation->stageFile(f.second, storage_service));
+        ASSERT_NO_THROW(simulation->stageFile(f, storage_service));
     }
 
     // Running a "run a single task" simulation
@@ -224,7 +224,8 @@ void MultipleWMSTest::do_deferredWMSStartOneWMS_test() {
     ASSERT_GT(wrench::Simulation::getCurrentSimulatedDate(), 100);
 
     delete simulation;
-    free(argv[0]);
+    for (int i=0; i < argc; i++)
+     free(argv[i]);
     free(argv);
 }
 
@@ -232,7 +233,7 @@ void MultipleWMSTest::do_deferredWMSStartTwoWMS_test() {
     // Create and initialize a simulation
     auto simulation = new wrench::Simulation();
     int argc = 1;
-    auto argv = (char **) calloc(1, sizeof(char *));
+    auto argv = (char **) calloc(argc, sizeof(char *));
     argv[0] = strdup("unit_test");
 
     ASSERT_NO_THROW(simulation->init(&argc, argv));
@@ -275,11 +276,11 @@ void MultipleWMSTest::do_deferredWMSStartTwoWMS_test() {
 
     // Staging the input_file on the storage service
     for (auto const &f : workflow->getInputFiles()) {
-        ASSERT_NO_THROW(simulation->stageFile(f.second, storage_service));
+        ASSERT_NO_THROW(simulation->stageFile(f, storage_service));
 
     }
     for (auto const &f : workflow2->getInputFiles()) {
-        ASSERT_NO_THROW(simulation->stageFile(f.second, storage_service));
+        ASSERT_NO_THROW(simulation->stageFile(f, storage_service));
 
     }
 
@@ -290,6 +291,7 @@ void MultipleWMSTest::do_deferredWMSStartTwoWMS_test() {
     ASSERT_GT(wrench::Simulation::getCurrentSimulatedDate(), 1000);
 
     delete simulation;
-    free(argv[0]);
+    for (int i=0; i < argc; i++)
+     free(argv[i]);
     free(argv);
 }

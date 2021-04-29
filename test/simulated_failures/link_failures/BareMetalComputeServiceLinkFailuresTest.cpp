@@ -18,7 +18,7 @@
 #include "../failure_test_util/ResourceRandomRepeatSwitcher.h"
 
 
-XBT_LOG_NEW_DEFAULT_CATEGORY(bare_metal_compute_service_link_failures_test, "Log category for BareMetalComputeServiceLinkFailuresTest");
+WRENCH_LOG_CATEGORY(bare_metal_compute_service_link_failures_test, "Log category for BareMetalComputeServiceLinkFailuresTest");
 
 
 class BareMetalComputeServiceLinkFailuresTest : public ::testing::Test {
@@ -178,8 +178,8 @@ void BareMetalComputeServiceLinkFailuresTest::do_ResourceInformationLinkFailure_
     // Create and initialize a simulation
     auto simulation = new wrench::Simulation();
     int argc = 1;
-    char **argv = (char **) calloc(1, sizeof(char *));
-    argv[0] = strdup("storage_service_test");
+    char **argv = (char **) calloc(argc, sizeof(char *));
+    argv[0] = strdup("unit_test");
 
     simulation->init(&argc, argv);
 
@@ -209,6 +209,7 @@ void BareMetalComputeServiceLinkFailuresTest::do_ResourceInformationLinkFailure_
 
     delete simulation;
 
-    free(argv[0]);
+    for (int i=0; i < argc; i++)
+     free(argv[i]);
     free(argv);
 }
