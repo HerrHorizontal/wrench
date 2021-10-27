@@ -13,6 +13,7 @@
 #include "wrench/services/compute/htcondor/HTCondorNegotiatorService.h"
 #include "wrench/simgrid_S4U_util/S4U_Mailbox.h"
 #include "wrench/simgrid_S4U_util/S4U_Simulation.h"
+#include "wrench/simulation/Simulation.h"
 #include "wrench/workflow/WorkflowTask.h"
 #include "wrench/workflow/job/PilotJob.h"
 #include "wrench/workflow/job/StandardJob.h"
@@ -101,6 +102,37 @@ namespace wrench {
             if (target_compute_service) {
                 job->pushCallbackMailbox(this->reply_mailbox);
                 if (auto sjob = std::dynamic_pointer_cast<StandardJob>(job)) {
+                    /******************************************************/
+                    /** "UGLY" HACK for caching functionality starts here */
+
+                    // identify available storage services on target_compute_service's hosts
+                    std::set<std::shared_ptr<wrench::StorageService>> matched_local_storage_services;
+                    for (auto host : target_compute_service->getHosts()) {
+                        for (auto ss: this->simulation->storage_services) {
+                            if (host == ss->getHostname()) {
+                                matched_local_storage_services.insert(ss);
+                                break;
+                            }
+                        }
+                    }
+                    // adjust job's file_locations map
+                    for (auto ss : matched_local_storage_services) {
+                        for (auto flp : sjob->file_locations) {
+                            if (ss->lookupFile(flp.first, FileLocation::LOCATION(ss))) {
+                                flp.second.insert(flp.second.begin(), FileLocation::LOCATION(ss));
+                                continue; // when the file is found no further action is needed
+                            } else {
+                                //TODO: evict files once there is no space left on the cache
+                                //TODO: auto some_file = ss->getFileToEvict();
+                                //TODO: ss->deleteFile(some_file, FileLocation::LOCATION(ss));
+                                //? copy input files if necessary (not sure if this is already done by the task)
+                                //? ss->writeFile(flp.first, FileLocation::LOCATION(ss));
+                            }
+                        }
+                    }
+
+                    /* and ends here                                      */
+                    /******************************************************/
                     target_compute_service->submitStandardJob(sjob, service_specific_arguments);
                 } else {
                     auto pjob = std::dynamic_pointer_cast<PilotJob>(job);
@@ -216,6 +248,7 @@ namespace wrench {
      * @param service_specific_arguments: service-specific arguments
      * @return
      */
+    //TODO: coordinate jobs preferably to compute services, where the input-files are already in proximity
     std::shared_ptr<ComputeService> HTCondorNegotiatorService::pickTargetComputeServiceNonGridUniverse(
             std::shared_ptr<WorkflowJob> job, std::map<std::string,
             std::string> service_specific_arguments) {

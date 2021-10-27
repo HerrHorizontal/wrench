@@ -54,3 +54,6 @@ host_utilization_layout.json
 
 #unit testing
 unit_tests
+
+#build directory
+build

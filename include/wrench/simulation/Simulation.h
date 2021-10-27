@@ -45,6 +45,8 @@ namespace wrench {
      */
     class Simulation {
 
+        friend class HTCondorNegotiatorService;
+
     public:
         Simulation();
 
