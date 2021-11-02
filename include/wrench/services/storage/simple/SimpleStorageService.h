@@ -87,6 +87,7 @@ namespace wrench {
 
     private:
         friend class Simulation;
+        friend class HTCondorNegotiatorService;
 
         // Low-level Constructor
         SimpleStorageService(std::string hostname,
@@ -139,6 +140,7 @@ namespace wrench {
         void validateProperties();
 
         std::shared_ptr<MemoryManager> memory_manager;
+
 
     };
 

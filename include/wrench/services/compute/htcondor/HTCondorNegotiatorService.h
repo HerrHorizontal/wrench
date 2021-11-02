@@ -45,6 +45,8 @@ namespace wrench {
     private:
         int main() override;
 
+        std::vector<std::pair<WorkflowFile *, double>> listAllFilesAtStorageService(std::shared_ptr<StorageService> ss);
+
         struct JobPriorityComparator {
             bool operator()(std::tuple<std::shared_ptr<WorkflowJob>, std::map<std::string, std::string>> &lhs,
                             std::tuple<std::shared_ptr<WorkflowJob>, std::map<std::string, std::string>> &rhs);

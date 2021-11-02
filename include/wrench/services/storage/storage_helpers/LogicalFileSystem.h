@@ -58,6 +58,7 @@ namespace wrench {
     private:
 
         friend class StorageService;
+        friend class HTCondorNegotiatorService;
 
         void stageFile(WorkflowFile *file, std::string absolute_path);
 

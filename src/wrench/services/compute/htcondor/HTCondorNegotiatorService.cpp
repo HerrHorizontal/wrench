@@ -26,6 +26,24 @@ WRENCH_LOG_CATEGORY(wrench_core_htcondor_negotiator, "Log category for HTCondorN
 namespace wrench {
 
     /**
+     * @brief HELPER method (hack) to get all files at a SS
+     * @param ss : storage_service
+     * @return list of files and their last read date
+     */
+    std::vector<std::pair<WorkflowFile *, double>> HTCondorNegotiatorService::listAllFilesAtStorageService(std::shared_ptr<StorageService> ss) {
+        std::vector<std::pair<WorkflowFile *, double>> list_of_files_at_storage_service;
+        for (auto const &fs : ss->file_systems) {
+            for (auto const &content : fs.second->content) {
+                for (auto const &f : content.second) {
+                    list_of_files_at_storage_service.push_back(std::make_pair(f, ss->file_read_dates[f]));
+                }
+            }
+        }
+        return list_of_files_at_storage_service;
+    }
+
+
+    /**
      * @brief Constructor
      *
      * @param hostname: the hostname on which to start the service
@@ -118,6 +136,7 @@ namespace wrench {
                     // adjust job's file_locations map
                     for (auto const &ss : matched_local_storage_services) {
                         for (auto flp : sjob->file_locations) {
+
                             //TODO: make sure only input-files are required
                             if (!ss->lookupFile(flp.first, FileLocation::LOCATION(ss))) {
                                 //TODO: evict files once there is no space left on the cache
@@ -125,6 +144,7 @@ namespace wrench {
                                 //TODO: ss->deleteFile(some_file, FileLocation::LOCATION(ss));
                                 // Copy input files to have a cached version available for the next task requiring this file
 //                                ss->writeFile(flp.first, FileLocation::LOCATION(ss));
+
                                 bool found_a_location = false;
                                 for (auto const &source_location : flp.second) {
                                     if (source_location->getStorageService()->lookupFile(flp.first, source_location)) {

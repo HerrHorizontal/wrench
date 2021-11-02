@@ -91,6 +91,7 @@ namespace wrench {
         friend class Simulation;
         friend class FileRegistryService;
         friend class FileTransferThread;
+        friend class HTCondorNegotiatorService;
 
         static void stageFile(WorkflowFile *file , std::shared_ptr<FileLocation> location);
 
@@ -100,9 +101,9 @@ namespace wrench {
         /** @brief File systems */
         std::map<std::string, std::unique_ptr<LogicalFileSystem>> file_systems;
 
+        std::map<WorkflowFile *, double> file_read_dates;
+
         /***********************/
-
-
         /** \endcond          **/
         /***********************/
 
@@ -119,6 +120,7 @@ namespace wrench {
         void stageFile(WorkflowFile *file , std::string mountpoint, std::string directory);
 
         bool is_stratch;
+
 
 
     };

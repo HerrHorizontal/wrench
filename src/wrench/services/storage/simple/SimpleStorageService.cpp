@@ -398,6 +398,10 @@ namespace wrench {
 
         // If success, then follow up with sending the file (ASYNCHRONOUSLY!)
         if (success) {
+
+            //
+            this->file_read_dates[file] = Simulation::getCurrentSimulatedDate();
+
             // Create a FileTransferThread
             auto ftt = std::shared_ptr<FileTransferThread>(
                     new FileTransferThread(this->hostname,
