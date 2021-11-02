@@ -118,16 +118,15 @@ namespace wrench {
                     // adjust job's file_locations map
                     for (auto ss : matched_local_storage_services) {
                         for (auto flp : sjob->file_locations) {
-                            if (ss->lookupFile(flp.first, FileLocation::LOCATION(ss))) {
-                                flp.second.insert(flp.second.begin(), FileLocation::LOCATION(ss));
-                                continue; // when the file is found no further action is needed
-                            } else {
+                            //TODO: make sure only input-files are required
+                            if (!ss->lookupFile(flp.first, FileLocation::LOCATION(ss))) {
                                 //TODO: evict files once there is no space left on the cache
                                 //TODO: auto some_file = ss->getFileToEvict();
                                 //TODO: ss->deleteFile(some_file, FileLocation::LOCATION(ss));
-                                //? copy input files if necessary (not sure if this is already done by the task)
-                                //? ss->writeFile(flp.first, FileLocation::LOCATION(ss));
+                                // Copy input files to have a cached version available for the next task requiring this file
+                                ss->writeFile(flp.first, FileLocation::LOCATION(ss));
                             }
+                            flp.second.insert(flp.second.begin(), FileLocation::LOCATION(ss));
                         }
                     }
 
@@ -262,6 +261,7 @@ namespace wrench {
         auto sjob = std::dynamic_pointer_cast<StandardJob>(job);
 
         // Figure out which batch compute services are available
+        //TODO: sort compute services according to a priority map
         for (auto const &cs : this->compute_services) {
             // Only BareMetalComputeServices can be used
             if (not std::dynamic_pointer_cast<BareMetalComputeService>(cs)) {
