@@ -116,7 +116,7 @@ namespace wrench {
                         }
                     }
                     // adjust job's file_locations map
-                    for (auto ss : matched_local_storage_services) {
+                    for (auto const &ss : matched_local_storage_services) {
                         for (auto flp : sjob->file_locations) {
                             //TODO: make sure only input-files are required
                             if (!ss->lookupFile(flp.first, FileLocation::LOCATION(ss))) {
@@ -124,7 +124,18 @@ namespace wrench {
                                 //TODO: auto some_file = ss->getFileToEvict();
                                 //TODO: ss->deleteFile(some_file, FileLocation::LOCATION(ss));
                                 // Copy input files to have a cached version available for the next task requiring this file
-                                ss->writeFile(flp.first, FileLocation::LOCATION(ss));
+//                                ss->writeFile(flp.first, FileLocation::LOCATION(ss));
+                                bool found_a_location = false;
+                                for (auto const &source_location : flp.second) {
+                                    if (source_location->getStorageService()->lookupFile(flp.first, source_location)) {
+                                        StorageService::copyFile(flp.first, source_location, FileLocation::LOCATION(ss));
+                                        found_a_location = true;
+                                        break;
+                                    }
+                                }
+                                if (not found_a_location) {
+                                    throw std::runtime_error("Didn't find the file anywhere");
+                                }
                             }
                             flp.second.insert(flp.second.begin(), FileLocation::LOCATION(ss));
                         }
