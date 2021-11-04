@@ -26,7 +26,7 @@ WRENCH_LOG_CATEGORY(wrench_core_htcondor_negotiator, "Log category for HTCondorN
 namespace wrench {
 
     /**
-     * @brief HELPER method (hack) to get all files at a SS
+     * @brief HELPER method (hack) to get all files at a storage service with last read date
      * @param ss : storage_service
      * @return list of files and their last read date
      */
@@ -109,6 +109,7 @@ namespace wrench {
         std::sort(this->pending_jobs.begin(), this->pending_jobs.end(), JobPriorityComparator());
 
         // Go through the jobs and schedule them if possible
+        std::set<wrench::WorkflowFile*> output_files;
         for (auto entry : this->pending_jobs) {
 
             auto job = std::get<0>(entry);
@@ -124,8 +125,9 @@ namespace wrench {
                     /** "UGLY" HACK for caching functionality starts here */
 
                     // identify available storage services on target_compute_service's hosts
+                    std::cerr << "Caching hack for job " << sjob->getName().c_str() << std::endl;
                     std::set<std::shared_ptr<wrench::StorageService>> matched_local_storage_services;
-                    for (auto host : target_compute_service->getHosts()) {
+                    for (auto const &host : target_compute_service->getHosts()) {
                         for (auto ss: this->simulation->storage_services) {
                             if (host == ss->getHostname()) {
                                 matched_local_storage_services.insert(ss);
@@ -133,19 +135,62 @@ namespace wrench {
                             }
                         }
                     }
-                    // adjust job's file_locations map
-                    for (auto const &ss : matched_local_storage_services) {
-                        for (auto flp : sjob->file_locations) {
-
-                            //TODO: make sure only input-files are required
+                    // get list of the job's output-files
+                    std::cerr << "Identify output-files" << std::endl;
+                    
+                    output_files.clear();
+                    for (auto const &task : sjob->getTasks()) {
+                        if (!task->getOutputFiles().empty()) {
+                            std::cerr << "Found " << std::to_string(task->getOutputFiles().size()) << " output-files for task " << task->getID().c_str() << std::endl;
+                            std::cerr << "Trying to insert into set of " << output_files.size() << "objects" << std::endl;
+                            output_files.insert(task->getOutputFiles().begin(), task->getOutputFiles().end()); //! WHY do you segfault???
+                            std::cerr << "output-file successfully added" << std::endl;
+                        }
+                    }
+                    
+                    std::cerr << "Start file-loop" << std::endl;
+                    for (auto &flp : sjob->file_locations) {
+                        // make sure to skip output-files
+                        bool is_output = false;
+                        for (auto const &f : output_files) {
+                            if (flp.first == f) {
+                                std::cerr << "skip file " << flp.first->getID().c_str() << std::endl;
+                                is_output = true;
+                            }
+                        }
+                        if (is_output) continue;
+                        // adjust job's file locations map
+                        //TODO: try to find file on any storage service
+                        for (auto const &ss : matched_local_storage_services) {
+                            // Cache input-file, when needed
+                            //TODO: cache file on only one storage service
                             if (!ss->lookupFile(flp.first, FileLocation::LOCATION(ss))) {
-                                //TODO: evict files once there is no space left on the cache
-                                //TODO: auto some_file = ss->getFileToEvict();
-                                //TODO: ss->deleteFile(some_file, FileLocation::LOCATION(ss));
+                                std::cerr << "Couldn't find file " << flp.first->getID().c_str() << " on storage service " << ss->getName().c_str() << std::endl;
+                                // Evict input-files as long as there is not enough space left on the cache
+                                //TODO: implement also random/FIFO/other eviction policies
+                                auto file_list = listAllFilesAtStorageService(ss);
+                                std::sort(
+                                    file_list.begin(), file_list.end(), 
+                                    [](const std::pair<wrench::WorkflowFile*, double> &a, const std::pair<wrench::WorkflowFile*, double> &b){
+                                        return a.second < b.second;
+                                    }
+                                );
+                                bool need_evict_file = true;
+                                while (need_evict_file) {
+                                    for (auto const &fs : ss->file_systems) {
+                                        if (fs.second->hasEnoughFreeSpace(flp.first->getSize())) {
+                                            need_evict_file = false;
+                                            break;
+                                        }
+                                    }
+                                    if (need_evict_file) {
+                                        std::cerr << "Need to evict file " << file_list.begin()->first->getID().c_str() << "on storage service " << ss->getName().c_str() << std::endl;
+                                        ss->deleteFile(file_list.begin()->first, FileLocation::LOCATION(ss));
+                                    }
+                                }
                                 // Copy input files to have a cached version available for the next task requiring this file
-//                                ss->writeFile(flp.first, FileLocation::LOCATION(ss));
-
                                 bool found_a_location = false;
+                                //TODO: identify the most optimal source location
                                 for (auto const &source_location : flp.second) {
                                     if (source_location->getStorageService()->lookupFile(flp.first, source_location)) {
                                         StorageService::copyFile(flp.first, source_location, FileLocation::LOCATION(ss));
@@ -153,16 +198,17 @@ namespace wrench {
                                         break;
                                     }
                                 }
-                                if (not found_a_location) {
-                                    throw std::runtime_error("Didn't find the file anywhere");
+                                if (!found_a_location) {
+                                    throw std::runtime_error("Didn't find the file " + flp.first->getID() + " anywhere");
                                 }
                             }
+                            std::cerr << "Found file " << flp.first->getID().c_str() << " on storage service " << ss->getName().c_str() << std::endl;
                             flp.second.insert(flp.second.begin(), FileLocation::LOCATION(ss));
                         }
                     }
 
-                    /* and ends here                                      */
-                    /******************************************************/
+                    /** HACK ends here                                     */
+                    /*******************************************************/
                     target_compute_service->submitStandardJob(sjob, service_specific_arguments);
                 } else {
                     auto pjob = std::dynamic_pointer_cast<PilotJob>(job);
