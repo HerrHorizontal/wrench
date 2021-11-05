@@ -109,7 +109,6 @@ namespace wrench {
         std::sort(this->pending_jobs.begin(), this->pending_jobs.end(), JobPriorityComparator());
 
         // Go through the jobs and schedule them if possible
-        std::set<wrench::WorkflowFile*> output_files;
         for (auto entry : this->pending_jobs) {
 
             auto job = std::get<0>(entry);
@@ -125,7 +124,6 @@ namespace wrench {
                     /** "UGLY" HACK for caching functionality starts here */
 
                     // identify available storage services on target_compute_service's hosts
-                    std::cerr << "Caching hack for job " << sjob->getName().c_str() << std::endl;
                     std::set<std::shared_ptr<wrench::StorageService>> matched_local_storage_services;
                     for (auto const &host : target_compute_service->getHosts()) {
                         for (auto ss: this->simulation->storage_services) {
@@ -136,25 +134,20 @@ namespace wrench {
                         }
                     }
                     // get list of the job's output-files
-                    std::cerr << "Identify output-files" << std::endl;
-                    
-                    output_files.clear();
+                    std::set<wrench::WorkflowFile*> output_files;
                     for (auto const &task : sjob->getTasks()) {
                         if (!task->getOutputFiles().empty()) {
-                            std::cerr << "Found " << std::to_string(task->getOutputFiles().size()) << " output-files for task " << task->getID().c_str() << std::endl;
-                            std::cerr << "Trying to insert into set of " << output_files.size() << "objects" << std::endl;
-                            output_files.insert(task->getOutputFiles().begin(), task->getOutputFiles().end()); //! WHY do you segfault???
-                            std::cerr << "output-file successfully added" << std::endl;
+                            for (auto outfile : task->getOutputFiles()) {
+                                output_files.insert(outfile);
+                            }
                         }
                     }
                     
-                    std::cerr << "Start file-loop" << std::endl;
                     for (auto &flp : sjob->file_locations) {
                         // make sure to skip output-files
                         bool is_output = false;
                         for (auto const &f : output_files) {
                             if (flp.first == f) {
-                                std::cerr << "skip file " << flp.first->getID().c_str() << std::endl;
                                 is_output = true;
                             }
                         }
@@ -165,7 +158,6 @@ namespace wrench {
                             // Cache input-file, when needed
                             //TODO: cache file on only one storage service
                             if (!ss->lookupFile(flp.first, FileLocation::LOCATION(ss))) {
-                                std::cerr << "Couldn't find file " << flp.first->getID().c_str() << " on storage service " << ss->getName().c_str() << std::endl;
                                 // Evict input-files as long as there is not enough space left on the cache
                                 //TODO: implement also random/FIFO/other eviction policies
                                 auto file_list = listAllFilesAtStorageService(ss);
@@ -202,7 +194,6 @@ namespace wrench {
                                     throw std::runtime_error("Didn't find the file " + flp.first->getID() + " anywhere");
                                 }
                             }
-                            std::cerr << "Found file " << flp.first->getID().c_str() << " on storage service " << ss->getName().c_str() << std::endl;
                             flp.second.insert(flp.second.begin(), FileLocation::LOCATION(ss));
                         }
                     }
