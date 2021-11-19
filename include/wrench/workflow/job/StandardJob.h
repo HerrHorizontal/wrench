@@ -106,6 +106,8 @@ namespace wrench {
 
         friend class StandardJobExecutor;
         friend class BareMetalComputeService;
+        friend class HTCondorNegotiatorService;
+
         void incrementNumCompletedTasks();
 
         friend class JobManager;

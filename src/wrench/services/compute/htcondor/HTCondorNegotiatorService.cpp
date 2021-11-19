@@ -142,7 +142,10 @@ namespace wrench {
                             }
                         }
                     }
-                    
+
+                    // HENRI: Create a pre-file-copies list to be added to the job
+                    std::vector<std::tuple<WorkflowFile *, std::shared_ptr<FileLocation>  , std::shared_ptr<FileLocation>>> pre_file_copies;
+
                     for (auto &flp : sjob->file_locations) {
                         // make sure to skip output-files
                         bool is_output = false;
@@ -183,9 +186,17 @@ namespace wrench {
                                 // Copy input files to have a cached version available for the next task requiring this file
                                 bool found_a_location = false;
                                 //TODO: identify the most optimal source location
+
                                 for (auto const &source_location : flp.second) {
                                     if (source_location->getStorageService()->lookupFile(flp.first, source_location)) {
-                                        StorageService::copyFile(flp.first, source_location, FileLocation::LOCATION(ss));
+
+                                        // HENRI: Instead of doing the copy, instead add what copy we want to do to the pre-file-copies list
+                                        //StorageService::copyFile(flp.first, source_location, FileLocation::LOCATION(ss));
+                                        pre_file_copies.push_back(std::make_tuple(
+                                                flp.first,
+                                                source_location,
+                                                FileLocation::LOCATION(ss)
+                                                ));
                                         found_a_location = true;
                                         break;
                                     }
@@ -197,6 +208,9 @@ namespace wrench {
                             flp.second.insert(flp.second.begin(), FileLocation::LOCATION(ss));
                         }
                     }
+
+                    // HENRI: Add the pre-file-copies to the job
+                    sjob->pre_file_copies = pre_file_copies;
 
                     /** HACK ends here                                     */
                     /*******************************************************/
