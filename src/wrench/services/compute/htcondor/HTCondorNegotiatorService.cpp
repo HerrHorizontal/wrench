@@ -183,9 +183,10 @@ namespace wrench {
                                 // Copy input files to have a cached version available for the next task requiring this file
                                 bool found_a_location = false;
                                 //TODO: identify the most optimal source location
+                                // Read from the first source which has the file
                                 for (auto const &source_location : flp.second) {
                                     if (source_location->getStorageService()->lookupFile(flp.first, source_location)) {
-                                        StorageService::copyFile(flp.first, source_location, FileLocation::LOCATION(ss));
+                                        StorageService::copyFile(flp.first, source_location, FileLocation::LOCATION(ss)); //! decouple this from negotiation cycle
                                         found_a_location = true;
                                         break;
                                     }
