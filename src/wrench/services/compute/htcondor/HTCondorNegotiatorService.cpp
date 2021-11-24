@@ -144,7 +144,7 @@ namespace wrench {
                     }
 
                     // HENRI: Create a pre-file-copies list to be added to the job
-                    std::vector<std::tuple<WorkflowFile *, std::shared_ptr<FileLocation>  , std::shared_ptr<FileLocation>>> pre_file_copies;
+                    std::vector<std::tuple<WorkflowFile *, std::shared_ptr<FileLocation>, std::shared_ptr<FileLocation>>> pre_file_copies;
 
                     for (auto &flp : sjob->file_locations) {
                         // make sure to skip output-files
