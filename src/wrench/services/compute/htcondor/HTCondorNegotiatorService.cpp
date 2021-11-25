@@ -157,6 +157,7 @@ namespace wrench {
                         for (auto const &ss : matched_local_storage_services) {
                             // Cache input-file, when needed
                             //TODO: cache file on only one storage service
+                            bool file_in_cache = false;
                             if (!ss->lookupFile(flp.first, FileLocation::LOCATION(ss))) {
                                 // Evict input-files as long as there is not enough space left on the cache
                                 //TODO: implement also random/FIFO/other eviction policies
@@ -186,8 +187,9 @@ namespace wrench {
                                 // Read from the first source which has the file
                                 for (auto const &source_location : flp.second) {
                                     if (source_location->getStorageService()->lookupFile(flp.first, source_location)) {
-                                        StorageService::copyFile(flp.first, source_location, FileLocation::LOCATION(ss)); //! decouple this from negotiation cycle
                                         found_a_location = true;
+                                        StorageService::stageFile(flp.first, FileLocation::LOCATION(ss));
+                                        file_in_cache = true;
                                         break;
                                     }
                                 }
@@ -195,7 +197,12 @@ namespace wrench {
                                     throw std::runtime_error("Didn't find the file " + flp.first->getID() + " anywhere");
                                 }
                             }
-                            flp.second.insert(flp.second.begin(), FileLocation::LOCATION(ss));
+                            else {
+                                file_in_cache = true;
+                                flp.second.insert(flp.second.begin(), FileLocation::LOCATION(ss));
+                            }
+
+                            if (file_in_cache) break;
                         }
                     }
 
