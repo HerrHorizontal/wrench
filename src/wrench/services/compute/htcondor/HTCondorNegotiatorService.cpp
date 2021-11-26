@@ -188,6 +188,8 @@ namespace wrench {
                                 for (auto const &source_location : flp.second) {
                                     if (source_location->getStorageService()->lookupFile(flp.first, source_location)) {
                                         found_a_location = true;
+                                        //! temporary solution, since this doesn't take transfer time from remote to cache into account
+                                        //! the next job requiring this file might read it from cache, although it isn't transfered yet 
                                         StorageService::stageFile(flp.first, FileLocation::LOCATION(ss));
                                         file_in_cache = true;
                                         break;
