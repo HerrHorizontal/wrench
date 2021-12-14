@@ -179,6 +179,7 @@ namespace wrench {
                                     if (need_evict_file) {
                                         std::cerr << "Need to evict file " << file_list.begin()->first->getID().c_str() << "on storage service " << ss->getName().c_str() << std::endl;
                                         ss->deleteFile(file_list.begin()->first, FileLocation::LOCATION(ss));
+                                        file_list.erase(file_list.begin());
                                     }
                                 }
                                 // Copy input files to have a cached version available for the next task requiring this file
